@@ -1,0 +1,93 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owns(userId) { return signedIn() && request.auth.uid == userId; }
+    function userRole() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : null;
+    }
+    function isOrganizationAdmin(organizationId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/organizationMembers/$(organizationId + "_" + request.auth.uid))
+        && get(/databases/$(database)/documents/organizationMembers/$(organizationId + "_" + request.auth.uid)).data.role == "owner";
+    }
+    function publicOpportunity(data) { return data.status == "published" && data.visibility == "public"; }
+
+    match /users/{userId} {
+      allow create: if owns(userId) && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role in ["volunteer", "organization"] && request.resource.data.status == "active";
+      allow read: if owns(userId);
+      allow update: if owns(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName", "lastLoginAt"]);
+    }
+
+    match /volunteerProfiles/{userId} {
+      allow create: if owns(userId);
+      allow read: if owns(userId) || userRole() == "organization";
+      allow update: if (
+        owns(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "name", "initials", "location", "bio", "interests", "declaredSkills", "availability", "updatedAt"
+        ])
+      ) || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "verifiedSkills", "experiences", "completedExperiences", "lastExperienceMatchId", "updatedAt"
+        ])
+        && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.lastExperienceMatchId)).data.userId == userId
+        && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.lastExperienceMatchId)).data.status == "completed"
+        && isOrganizationAdmin(getAfter(/databases/$(database)/documents/matches/$(request.resource.data.lastExperienceMatchId)).data.organizationId)
+      );
+    }
+
+    match /organizations/{organizationId} {
+      allow read: if resource.data.status == "verified" || owns(resource.data.ownerId) || isOrganizationAdmin(organizationId);
+      allow create: if owns(organizationId) && request.resource.data.ownerId == request.auth.uid && request.resource.data.status == "verified";
+      allow update: if (owns(resource.data.ownerId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        "name", "province", "location", "contact", "description", "updatedAt"
+      ]));
+    }
+
+    match /organizationMembers/{membershipId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId));
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid
+        && request.resource.data.role == "owner"
+        && membershipId == request.resource.data.organizationId + "_" + request.auth.uid;
+    }
+
+    match /opportunities/{opportunityId} {
+      allow read: if publicOpportunity(resource.data) || isOrganizationAdmin(resource.data.organizationId);
+      allow create: if isOrganizationAdmin(request.resource.data.organizationId);
+      allow update: if isOrganizationAdmin(resource.data.organizationId);
+    }
+
+    match /applications/{applicationId} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid
+        && applicationId == request.resource.data.opportunityId + "_" + request.auth.uid
+        && request.resource.data.status == "pending"
+        && publicOpportunity(get(/databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)).data);
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId));
+      allow update: if isOrganizationAdmin(resource.data.organizationId);
+    }
+
+    match /matches/{matchId} {
+      allow create: if isOrganizationAdmin(request.resource.data.organizationId);
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId));
+      allow update: if isOrganizationAdmin(resource.data.organizationId);
+    }
+
+    match /participations/{participationId} {
+      allow create: if isOrganizationAdmin(request.resource.data.organizationId)
+        && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.status == "completed"
+        && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.userId == request.resource.data.userId;
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId));
+    }
+
+    match /feedback/{feedbackId} {
+      allow create: if isOrganizationAdmin(request.resource.data.organizationId)
+        && existsAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId));
+      allow read: if signedIn() && (resource.data.volunteerId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId));
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

@@ -1,0 +1,10 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // El alcance E3 no incluye cargas de archivos desde la aplicación.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
