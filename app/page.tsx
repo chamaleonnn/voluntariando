@@ -2,8 +2,9 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  ArrowRight, Building2, CalendarDays, Check, ChevronRight, Clock3, HeartHandshake,
-  LogOut, Map, MapPin, Moon, Pencil, Plus, Search, ShieldCheck, Sparkles, Sun, UserRound, Users,
+  ArrowRight, Ban, Bot, Building2, CalendarDays, Check, ChevronRight, CirclePlay, Clock3,
+  Globe2, HeartHandshake, LogOut, Map, MapPin, Moon, Pause, Pencil, Plus, Search, Settings2,
+  Shield, ShieldCheck, Sparkles, Sun, Trash2, UserCog, UserRound, Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,11 +27,12 @@ import { isFirebaseConfigured } from "@/lib/firebase";
 import { recommendOpportunities } from "@/lib/recommendations";
 import type { Application, Opportunity, Organization, SessionUser, VolunteerProfile } from "@/lib/types";
 
-type Screen = "landing" | "opportunities" | "volunteer" | "organization";
+type Screen = "landing" | "opportunities" | "volunteer" | "organization" | "admin";
 
 const DEMO_USERS = {
   volunteer: { uid: "demo-volunteer", email: "sofia@demo.local", displayName: "Sofía Martínez", role: "volunteer", isDemo: true } as SessionUser,
   organization: { uid: "demo-organization", email: "equipo@fundemos.demo", displayName: "Fundemos", role: "organization", isDemo: true } as SessionUser,
+  admin: { uid: "demo-admin", email: "admin@prototipo.demo", displayName: "Tao · Administrador", role: "admin", isDemo: true } as SessionUser,
 };
 
 const DEMO_ORGANIZATION: Organization = {
@@ -44,13 +46,16 @@ function splitList(value: FormDataEntryValue | null) {
 }
 
 function screenForRole(role: SessionUser["role"]): Screen {
-  return role === "organization" ? "organization" : "volunteer";
+  if (role === "organization") return "organization";
+  if (role === "admin") return "admin";
+  return "volunteer";
 }
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("landing");
   const [user, setUser] = useState<SessionUser | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [opportunities, setOpportunities] = useState<Opportunity[]>(DEMO_OPPORTUNITIES);
   const [applications, setApplications] = useState<Application[]>(DEMO_APPLICATIONS);
@@ -92,7 +97,12 @@ export default function Home() {
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     const fail = (error: Error) => console.error("Lectura pública de Firebase", error);
-    const stopOpportunities = observeOpportunities((items) => { if (items.length) setOpportunities(items); }, fail);
+    const stopOpportunities = observeOpportunities((items) => {
+      if (!items.length) return;
+      // Durante el piloto completamos el catálogo con ejemplos hasta llegar a cinco casos.
+      const ids = new Set(items.map((item) => item.id));
+      setOpportunities([...items, ...DEMO_OPPORTUNITIES.filter((item) => !ids.has(item.id))].slice(0, 5));
+    }, fail);
     const stopOrganizations = observeOrganizations((items) => { if (items.length) setOrganizations(items); }, fail);
     return () => { stopOpportunities(); stopOrganizations(); };
   }, []);
@@ -111,9 +121,10 @@ export default function Home() {
   );
 
   function navigate(next: Screen) {
-    if ((next === "volunteer" || next === "organization") && !user) return setAuthOpen(true);
+    if ((next === "volunteer" || next === "organization" || next === "admin") && !user) return setAuthOpen(true);
     if (next === "volunteer" && user?.role !== "volunteer") return toast.info("Este panel corresponde al perfil de voluntario.");
     if (next === "organization" && user?.role !== "organization") return toast.info("Este panel corresponde a una organización.");
+    if (next === "admin" && user?.role !== "admin") return toast.info("Este panel corresponde a administración.");
     setScreen(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -165,49 +176,68 @@ export default function Home() {
     <main className="site-shell">
       <div className="ambient-background" aria-hidden="true"><span className="ambient-orb ambient-orb-one" /><span className="ambient-orb ambient-orb-two" /><span className="ambient-orb ambient-orb-three" /></div>
       <Toaster position="top-center" richColors />
-      <SiteHeader screen={screen} user={user} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSignOut={signOut} />
-      {screen === "landing" && <Landing opportunities={opportunities} onExplore={() => navigate("opportunities")} onLogin={() => setAuthOpen(true)} />}
-      {screen === "opportunities" && <OpportunityFeed opportunities={recommended} user={user} onOpen={setSelectedOpportunity} />}
-      {screen === "volunteer" && user?.role === "volunteer" && (
-        <VolunteerPanel user={user} profile={profile} applications={applications} opportunities={recommended} onProfile={setProfile} onExplore={() => navigate("opportunities")} />
-      )}
-      {screen === "organization" && user?.role === "organization" && (
-        <OrganizationPanel
-          user={user} organization={organization} opportunities={opportunities} applications={applications}
-          onOrganization={(next) => setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next])}
-          onOpportunities={setOpportunities} onApplications={setApplications} onProfile={setProfile}
-        />
-      )}
+      <SiteHeader screen={screen} user={user} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSwitchRole={() => setRoleOpen(true)} onSignOut={signOut} />
+      <div className="screen-stage" key={screen}>
+        {screen === "landing" && <Landing opportunities={opportunities} onExplore={() => navigate("opportunities")} onLogin={() => setAuthOpen(true)} />}
+        {screen === "opportunities" && <OpportunityFeed opportunities={recommended} user={user} onOpen={setSelectedOpportunity} />}
+        {screen === "volunteer" && user?.role === "volunteer" && (
+          <VolunteerPanel user={user} profile={profile} applications={applications} opportunities={recommended} onProfile={setProfile} onExplore={() => navigate("opportunities")} />
+        )}
+        {screen === "organization" && user?.role === "organization" && (
+          <OrganizationPanel
+            user={user} organization={organization} opportunities={opportunities} applications={applications}
+            onOrganization={(next) => setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next])}
+            onOpportunities={setOpportunities} onApplications={setApplications} onProfile={setProfile}
+          />
+        )}
+        {screen === "admin" && user?.role === "admin" && <AdminPanel opportunities={opportunities} applications={applications} />}
+      </div>
+      <GuideAssistant user={user} profile={profile} opportunities={recommended} onOpenOpportunity={setSelectedOpportunity} />
       <OpportunityDialog opportunity={selectedOpportunity} user={user} applications={applications} open={Boolean(selectedOpportunity)} onOpenChange={(open) => !open && setSelectedOpportunity(null)} onApply={apply} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onUser={loginAs} />
+      <RoleSwitcher open={roleOpen} onOpenChange={setRoleOpen} onUser={loginAs} />
     </main>
   );
 }
 
-function SiteHeader({ screen, user, onTheme, onNavigate, onLogin, onSignOut }: {
-  screen: Screen; user: SessionUser | null; onTheme: () => void; onNavigate: (screen: Screen) => void; onLogin: () => void; onSignOut: () => void;
+function SiteHeader({ screen, user, onTheme, onNavigate, onLogin, onSwitchRole, onSignOut }: {
+  screen: Screen; user: SessionUser | null; onTheme: () => void; onNavigate: (screen: Screen) => void; onLogin: () => void; onSwitchRole: () => void; onSignOut: () => void;
 }) {
   const account = user ? screenForRole(user.role) : "volunteer";
   return <header className="site-header">
-    <button className="brand" onClick={() => onNavigate("landing")}><span className="brand-mark"><HeartHandshake /></span><span>Red Cercana<small>prototipo tecnológico</small></span></button>
+    <button className="brand" onClick={() => onNavigate("landing")}><span className="brand-mark"><HeartHandshake /></span><span>Red Cercana<small>identidad provisoria</small></span></button>
     <nav className="main-nav" aria-label="Navegación principal"><button className={screen === "landing" ? "active" : ""} onClick={() => onNavigate("landing")}>Inicio</button><button className={screen === "opportunities" ? "active" : ""} onClick={() => onNavigate("opportunities")}>Oportunidades</button>{user && <button className={screen === account ? "active" : ""} onClick={() => onNavigate(account)}>Mi espacio</button>}</nav>
-    <div className="header-account"><Button className="theme-toggle" variant="ghost" size="icon" onClick={onTheme} aria-label="Cambiar tema de color"><Moon className="theme-icon-light" /><Sun className="theme-icon-dark" /></Button>{user ? <><button className="account-chip" onClick={() => onNavigate(account)}><span>{user.displayName.charAt(0)}</span><b>{user.displayName}</b></button><Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Cerrar sesión"><LogOut /></Button></> : <Button className="soft-button" onClick={onLogin}>Ingresar</Button>}</div>
+    <div className="header-account"><Button className="theme-toggle" variant="ghost" size="icon" onClick={onTheme} aria-label="Cambiar tema de color"><Moon className="theme-icon-light" /><Sun className="theme-icon-dark" /></Button>{user ? <><button className="account-chip" onClick={onSwitchRole} title="Cambiar rol"><span>{user.displayName.charAt(0)}</span><b>{user.displayName}</b><UserCog /></button><Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Cerrar sesión"><LogOut /></Button></> : <Button className="soft-button" onClick={onLogin}>Ingresar</Button>}</div>
   </header>;
 }
 
 function Landing({ opportunities, onExplore, onLogin }: { opportunities: Opportunity[]; onExplore: () => void; onLogin: () => void }) {
+  const [guide, setGuide] = useState<number | null>(null);
+  const steps = [
+    { title: "Creá tu perfil", text: "Registrá intereses, habilidades y ubicación.", scenes: ["Ingresá con Google", "Elegí Voluntario", "Completá tus intereses"] },
+    { title: "Recibí recomendaciones", text: "El sistema calcula y explica la compatibilidad.", scenes: ["Analizamos tu trayectoria", "Comparamos habilidades", "Ordenamos las oportunidades"] },
+    { title: "Mostrá interés", text: "La organización acepta o rechaza la solicitud.", scenes: ["Abrí una oportunidad", "Revisá tareas y lugar", "Marcá Me interesa"] },
+    { title: "Sumá experiencia", text: "Las habilidades verificadas actualizan tu trayectoria.", scenes: ["La organización completa la experiencia", "El administrador valida", "Tu perfil aprende y mejora"] },
+  ];
   return <>
     <section className="hero-section document-hero">
       <div className="hero-copy"><Badge className="hero-kicker"><Sparkles /> Voluntariado que deja huella</Badge><h1>Conectamos personas que quieren ayudar con oportunidades de voluntariado.</h1><p>Descubrí, postuláte y construí una trayectoria que mejora tus próximas recomendaciones.</p><div className="hero-actions"><Button size="lg" onClick={onExplore}>Explorar oportunidades <ArrowRight /></Button><Button size="lg" variant="outline" onClick={onLogin}>Ingresar con Google</Button></div><span className="hero-note"><ShieldCheck /> Las oportunidades se pueden explorar sin iniciar sesión.</span></div>
       <div className="landing-opportunity-showcase">{opportunities.slice(0, 3).map((item) => <article key={item.id}><div style={{ backgroundImage: `url(${item.imageUrl})` }} /><span>{item.category}</span><h3>{item.title}</h3><p><MapPin /> {item.neighborhood}, {item.province}</p></article>)}</div>
     </section>
-    <section className="how-section"><div className="section-heading"><span>Cómo funciona</span><h2>De la oportunidad a una nueva experiencia</h2></div><div className="steps-row"><Step number="1" title="Creá tu perfil" text="Registrá intereses, habilidades, ubicación y disponibilidad." /><Step number="2" title="Recibí recomendaciones" text="El sistema calcula y explica la compatibilidad." /><Step number="3" title="Mostrá interés" text="La organización acepta o rechaza la solicitud." /><Step number="4" title="Sumá experiencia" text="Las tareas y habilidades verificadas actualizan tu trayectoria." /></div></section>
-    <section className="landing-cta"><div><span>Prototipo con alcance nacional</span><h2>El piloto comienza en Córdoba.</h2><p>La provincia es un filtro inicial, no una limitación del sistema.</p></div><Button size="lg" onClick={onExplore}>Ver oportunidades <ChevronRight /></Button></section>
+    <section className="how-section"><div className="section-heading"><span>Cómo funciona</span><h2>De la oportunidad a una nueva experiencia</h2><p>Elegí un paso para ver su recorrido animado.</p></div><div className="steps-row">{steps.map((step, index) => <Step key={step.title} number={String(index + 1)} title={step.title} text={step.text} onOpen={() => setGuide(index)} />)}</div></section>
+    <section className="landing-cta"><div><span><Globe2 /> Plataforma de alcance global</span><h2>El piloto comienza en Córdoba.</h2><p>Córdoba aporta los primeros casos de la tesis, pero la ubicación no limita el uso del sistema.</p></div><Button size="lg" onClick={onExplore}>Ver oportunidades <ChevronRight /></Button></section>
+    <StepGuideDialog step={guide === null ? null : steps[guide]} number={guide === null ? 0 : guide + 1} open={guide !== null} onOpenChange={(open) => !open && setGuide(null)} />
   </>;
 }
 
-function Step({ number, title, text }: { number: string; title: string; text: string }) {
-  return <article className="step-card"><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>;
+function Step({ number, title, text, onOpen }: { number: string; title: string; text: string; onOpen: () => void }) {
+  return <button className="step-card" onClick={onOpen}><span>{number}</span><div><h3>{title}</h3><p>{text}</p><small><CirclePlay /> Ver paso a paso</small></div></button>;
+}
+
+function StepGuideDialog({ step, number, open, onOpenChange }: { step: { title: string; text: string; scenes: string[] } | null; number: number; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const [playing, setPlaying] = useState(true);
+  if (!step) return null;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="guide-dialog"><DialogHeader><DialogTitle>Paso {number}: {step.title}</DialogTitle><DialogDescription>{step.text}</DialogDescription></DialogHeader><div className={`walkthrough-video ${playing ? "playing" : "paused"}`}><div className="video-toolbar"><span>Guía animada · 00:45</span><button onClick={() => setPlaying((value) => !value)} aria-label={playing ? "Pausar guía" : "Reproducir guía"}>{playing ? <Pause /> : <CirclePlay />}</button></div><div className="video-scenes">{step.scenes.map((scene, index) => <div key={scene}><span>{index + 1}</span><b>{scene}</b></div>)}</div><div className="video-progress"><i /></div></div><DialogFooter><Button onClick={() => onOpenChange(false)}>Entendido</Button></DialogFooter></DialogContent></Dialog>;
 }
 
 function OpportunityFeed({ opportunities, user, onOpen }: { opportunities: Opportunity[]; user: SessionUser | null; onOpen: (item: Opportunity) => void }) {
@@ -272,6 +302,31 @@ function OrganizationPanel({ user, organization, opportunities, applications, on
   </Dashboard>;
 }
 
+function AdminPanel({ opportunities, applications }: { opportunities: Opportunity[]; applications: Application[] }) {
+  const demoUsers = [DEMO_USERS.volunteer, DEMO_USERS.organization, DEMO_USERS.admin];
+  const simulate = (action: string, target: string) => toast.success(`${action}: ${target}`, { description: "Acción simulada en el prototipo. No modifica datos reales." });
+  return <Dashboard title="Administración" description="Supervisión general, moderación y corrección de la plataforma." icon={<Shield />} action={<Badge variant="secondary">Modo demostración</Badge>}>
+    <div className="stats-grid"><Stat label="Usuarios" value={demoUsers.length} detail="perfiles simulados" /><Stat label="Oportunidades" value={opportunities.length} detail="publicadas" /><Stat label="Solicitudes" value={applications.length} detail="registradas" /><Stat label="Alertas" value={2} detail="para revisar" /></div>
+    <div className="dashboard-grid admin-grid">
+      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Control de usuarios</span><h2>Perfiles, roles y contacto</h2></div></div><div className="admin-list">{demoUsers.map((item) => <div key={item.uid}><span className="admin-icon green">{item.role === "organization" ? <Building2 /> : item.role === "admin" ? <Shield /> : <UserRound />}</span><div><b>{item.displayName}</b><p>{item.email} · {item.role}</p></div><span className="inline-actions"><Button size="sm" variant="outline" onClick={() => simulate("Perfil corregido", item.displayName)}><Settings2 /> Corregir</Button><Button size="sm" variant="outline" onClick={() => simulate("Cuenta suspendida", item.displayName)}><Ban /> Suspender</Button></span></div>)}</div></section>
+      <section className="panel-card"><div className="panel-heading"><div><span>Moderación</span><h2>Contenido pendiente</h2></div></div><div className="admin-list"><div><span className="admin-icon amber"><ShieldCheck /></span><div><b>Foto de reseña</b><p>Requiere aprobación antes de publicarse.</p></div><Button size="sm" onClick={() => simulate("Foto aprobada", "reseña reciente")}>Revisar</Button></div><div><span className="admin-icon amber"><Bot /></span><div><b>Devolución de experiencia</b><p>Lista para validar antes del análisis asistido.</p></div><Button size="sm" onClick={() => simulate("Devolución validada", "experiencia")}>Validar</Button></div></div></section>
+      <section className="panel-card"><div className="panel-heading"><div><span>Acciones globales</span><h2>Intervención administrativa</h2></div></div><div className="admin-actions"><Button variant="outline" onClick={() => simulate("Oportunidad corregida", opportunities[0]?.title ?? "oportunidad")}><Pencil /> Editar publicación</Button><Button variant="outline" onClick={() => simulate("Contenido eliminado", "publicación denunciada")}><Trash2 /> Eliminar contenido</Button><Button variant="outline" onClick={() => simulate("Suspensión temporal aplicada", "cuenta reportada")}><Ban /> Suspender por tiempo</Button></div></section>
+    </div>
+  </Dashboard>;
+}
+
+function GuideAssistant({ user, profile, opportunities, onOpenOpportunity }: { user: SessionUser | null; profile: VolunteerProfile; opportunities: Opportunity[]; onOpenOpportunity: (item: Opportunity) => void }) {
+  const [open, setOpen] = useState(false);
+  const [goal, setGoal] = useState("aprender");
+  const [format, setFormat] = useState("cualquiera");
+  const suggested = opportunities.find((item) => format === "cualquiera" || item.modality?.toLocaleLowerCase("es") === format) ?? opportunities[0];
+  return <aside className={`guide-assistant ${open ? "open" : ""}`}><button className="assistant-launcher" onClick={() => setOpen((value) => !value)} aria-label="Abrir asistente orientador"><span className="mascot-face"><i /><i /></span><b>{open ? "Cerrar" : "Te ayudo"}</b></button>{open && <div className="assistant-panel"><header><span className="mascot-face large"><i /><i /></span><div><b>Asistente orientador</b><small>Prototipo de recomendación con IA</small></div></header><p>{user?.role === "volunteer" ? `Hola, ${profile.name.split(" ")[0]}. Ya consideré tus ${profile.completedExperiences} experiencias y habilidades verificadas.` : "Respondé dos preguntas y te ayudo a encontrar una oportunidad."}</p><label>¿Qué buscás en tu próxima experiencia?<Select value={goal} onValueChange={setGoal}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="aprender">Aprender algo nuevo</SelectItem><SelectItem value="comunidad">Ayudar a mi comunidad</SelectItem><SelectItem value="experiencia">Fortalecer mi perfil</SelectItem></SelectContent></Select></label><label>¿Qué modalidad preferís?<Select value={format} onValueChange={setFormat}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="cualquiera">Cualquiera</SelectItem><SelectItem value="presencial">Presencial</SelectItem><SelectItem value="virtual">Virtual</SelectItem><SelectItem value="híbrida">Híbrida</SelectItem></SelectContent></Select></label>{suggested && <button className="assistant-result" onClick={() => { onOpenOpportunity(suggested); setOpen(false); }}><Sparkles /><span><small>Recomendación para vos</small><b>{suggested.title}</b><em>{goal === "aprender" ? "Te permite sumar habilidades nuevas." : goal === "comunidad" ? "Tiene impacto comunitario directo." : "Puede fortalecer tu trayectoria verificada."}</em></span><ChevronRight /></button>}</div>}</aside>;
+}
+
+function RoleSwitcher({ open, onOpenChange, onUser }: { open: boolean; onOpenChange: (open: boolean) => void; onUser: (user: SessionUser) => void }) {
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="auth-dialog"><DialogHeader><DialogTitle>Probar los tres caminos</DialogTitle><DialogDescription>Este selector es exclusivo del prototipo y permite recorrer cada rol sin salir.</DialogDescription></DialogHeader><div className="demo-role-grid"><button onClick={() => onUser(DEMO_USERS.volunteer)}><UserRound /><span><b>Voluntario</b><small>Perfil, postulaciones y recomendaciones</small></span></button><button onClick={() => onUser(DEMO_USERS.organization)}><Building2 /><span><b>Organización</b><small>Publicaciones, solicitudes y devoluciones</small></span></button><button onClick={() => onUser(DEMO_USERS.admin)}><Shield /><span><b>Administrador</b><small>Supervisión, corrección y moderación</small></span></button></div></DialogContent></Dialog>;
+}
+
 function Dashboard({ title, description, icon, action, children }: { title: string; description: string; icon: React.ReactNode; action: React.ReactNode; children: React.ReactNode }) {
   return <section className="dashboard-page"><div className="dashboard-hero"><span className="dashboard-icon">{icon}</span><div><span>Espacio de trabajo</span><h1>{title}</h1><p>{description}</p></div><div>{action}</div></div><div className="dashboard-body">{children}</div></section>;
 }
@@ -289,7 +344,7 @@ function OpportunityDialog({ opportunity, user, applications, open, onOpenChange
 function AuthDialog({ open, onOpenChange, onUser }: { open: boolean; onOpenChange: (open: boolean) => void; onUser: (user: SessionUser) => void }) {
   const [loading, setLoading] = useState(false);
   async function login(role: "volunteer" | "organization") { setLoading(true); try { const next = await firebaseSignInWithGoogle(role); onUser(next); } catch (error) { toast.error("No pudimos iniciar sesión", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); } finally { setLoading(false); } }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="auth-dialog"><DialogHeader><span className="auth-mark"><HeartHandshake /></span><DialogTitle>Ingresá con Google</DialogTitle><DialogDescription>En el primer acceso elegí el perfil que vas a utilizar.</DialogDescription></DialogHeader><Button variant="outline" onClick={() => void login("volunteer")} disabled={loading}><UserRound /> Continuar como voluntario</Button><Button variant="outline" onClick={() => void login("organization")} disabled={loading}><Building2 /> Continuar como organización</Button><p className="demo-hint">Recorré el prototipo sin crear datos reales:</p><div className="demo-role-grid"><button onClick={() => onUser(DEMO_USERS.volunteer)}><UserRound /><span><b>Voluntario demo</b><small>Perfil y recomendaciones</small></span></button><button onClick={() => onUser(DEMO_USERS.organization)}><Building2 /><span><b>Organización demo</b><small>Oportunidades y solicitudes</small></span></button></div></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="auth-dialog"><DialogHeader><span className="auth-mark"><HeartHandshake /></span><DialogTitle>Ingresá con Google</DialogTitle><DialogDescription>En el primer acceso elegí el perfil que vas a utilizar.</DialogDescription></DialogHeader><Button variant="outline" onClick={() => void login("volunteer")} disabled={loading}><UserRound /> Continuar como voluntario</Button><Button variant="outline" onClick={() => void login("organization")} disabled={loading}><Building2 /> Continuar como organización</Button><p className="demo-hint">Recorré el prototipo sin crear datos reales y cambiá de rol cuando quieras:</p><div className="demo-role-grid"><button onClick={() => onUser(DEMO_USERS.volunteer)}><UserRound /><span><b>Voluntario demo</b><small>Perfil y recomendaciones</small></span></button><button onClick={() => onUser(DEMO_USERS.organization)}><Building2 /><span><b>Organización demo</b><small>Oportunidades y solicitudes</small></span></button><button onClick={() => onUser(DEMO_USERS.admin)}><Shield /><span><b>Administrador demo</b><small>Supervisión y moderación</small></span></button></div></DialogContent></Dialog>;
 }
 
 function VolunteerProfileDialog({ user, profile, open, onOpenChange, onSaved }: { user: SessionUser; profile: VolunteerProfile; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (profile: VolunteerProfile) => void }) {

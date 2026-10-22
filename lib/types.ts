@@ -42,7 +42,7 @@ export type SessionUser = {
   uid: string;
   email: string;
   displayName: string;
-  role: "volunteer" | "organization";
+  role: "volunteer" | "organization" | "admin";
   status?: "active";
   isDemo?: boolean;
 };
