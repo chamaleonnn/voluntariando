@@ -326,7 +326,7 @@ function GuideAssistant({ user, profile, opportunities, onOpenOpportunity }: { u
     const timer = window.setTimeout(() => {
       setOpen(true);
       window.sessionStorage.setItem("via-assistant-seen", "true");
-    }, 5000);
+    }, 10000);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -355,7 +355,7 @@ function GuideAssistant({ user, profile, opportunities, onOpenOpportunity }: { u
       {stage === "questions" && <div className="assistant-questions"><p>{user?.role === "volunteer" ? `Hola, ${profile.name.split(" ")[0]}. Voy a combinar tus respuestas con ${profile.completedExperiences} experiencias y ${verifiedCount} habilidades verificadas.` : "Voy a usar tus respuestas y las métricas disponibles de cada oportunidad."}</p><label>¿Qué buscás?<Select value={goal} onValueChange={setGoal}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="aprender">Aprender algo nuevo</SelectItem><SelectItem value="comunidad">Ayudar a mi comunidad</SelectItem><SelectItem value="experiencia">Fortalecer mi perfil</SelectItem></SelectContent></Select></label><label>¿Qué causa te interesa más?<Select value={cause} onValueChange={setCause}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="cualquiera">Quiero descubrir</SelectItem><SelectItem value="arte">Arte y creatividad</SelectItem><SelectItem value="ambiente">Ambiente</SelectItem><SelectItem value="educación">Educación</SelectItem><SelectItem value="comunidad">Comunidad</SelectItem></SelectContent></Select></label><label>¿Qué modalidad preferís?<Select value={format} onValueChange={setFormat}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="cualquiera">Cualquiera</SelectItem><SelectItem value="presencial">Presencial</SelectItem><SelectItem value="virtual">Virtual</SelectItem><SelectItem value="híbrida">Híbrida</SelectItem></SelectContent></Select></label><Button size="sm" onClick={() => setStage("result")}>Analizar opciones <Bot /></Button></div>}
       {stage === "result" && suggested && <div className="assistant-recommendation"><span className="assistant-score">{suggested.compatibility ?? 82}%</span><p>La mejor opción que encontré para vos es:</p><button className="assistant-result" onClick={() => { onOpenOpportunity(suggested); closeAssistant(); }}><Sparkles /><span><small>Recomendación de Vía</small><b>{suggested.title}</b><em>{suggested.recommendedBecause || explanation}</em></span><ChevronRight /></button><button className="assistant-restart" onClick={() => setStage("questions")}>Cambiar mis respuestas</button></div>}
     </div>}
-    <button className="assistant-launcher" onClick={() => setOpen((value) => !value)} aria-label="Abrir a Vía, asistente orientador"><Image src="/via-mecha.png" width={58} height={58} alt="" /><b>{open ? "Cerrar" : "Preguntale a Vía"}</b></button>
+    <button className="assistant-launcher" onClick={() => setOpen((value) => !value)} aria-label="Abrir a Vía, asistente orientador"><Image src="/via-mecha.png" width={58} height={58} alt="" /><b>¿Todavía no decidís dónde ayudar?</b></button>
   </aside>;
 }
 
