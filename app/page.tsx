@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   ArrowRight, Ban, Bot, Building2, CalendarDays, Check, ChevronRight, CirclePlay, Clock3,
   Globe2, HeartHandshake, LogOut, Map, MapPin, Moon, Pencil, Plus, Search, Settings2,
@@ -316,10 +317,46 @@ function AdminPanel({ opportunities, applications }: { opportunities: Opportunit
 
 function GuideAssistant({ user, profile, opportunities, onOpenOpportunity }: { user: SessionUser | null; profile: VolunteerProfile; opportunities: Opportunity[]; onOpenOpportunity: (item: Opportunity) => void }) {
   const [open, setOpen] = useState(false);
+  const [stage, setStage] = useState<"invite" | "questions" | "result">("invite");
   const [goal, setGoal] = useState("aprender");
+  const [cause, setCause] = useState("cualquiera");
   const [format, setFormat] = useState("cualquiera");
-  const suggested = opportunities.find((item) => format === "cualquiera" || item.modality?.toLocaleLowerCase("es") === format) ?? opportunities[0];
-  return <aside className={`guide-assistant ${open ? "open" : ""}`}><button className="assistant-launcher" onClick={() => setOpen((value) => !value)} aria-label="Abrir asistente orientador"><span className="mascot-face"><i /><i /></span><b>{open ? "Cerrar" : "Te ayudo"}</b></button>{open && <div className="assistant-panel"><header><span className="mascot-face large"><i /><i /></span><div><b>Asistente orientador</b><small>Prototipo de recomendación con IA</small></div></header><p>{user?.role === "volunteer" ? `Hola, ${profile.name.split(" ")[0]}. Ya consideré tus ${profile.completedExperiences} experiencias y habilidades verificadas.` : "Respondé dos preguntas y te ayudo a encontrar una oportunidad."}</p><label>¿Qué buscás en tu próxima experiencia?<Select value={goal} onValueChange={setGoal}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="aprender">Aprender algo nuevo</SelectItem><SelectItem value="comunidad">Ayudar a mi comunidad</SelectItem><SelectItem value="experiencia">Fortalecer mi perfil</SelectItem></SelectContent></Select></label><label>¿Qué modalidad preferís?<Select value={format} onValueChange={setFormat}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="cualquiera">Cualquiera</SelectItem><SelectItem value="presencial">Presencial</SelectItem><SelectItem value="virtual">Virtual</SelectItem><SelectItem value="híbrida">Híbrida</SelectItem></SelectContent></Select></label>{suggested && <button className="assistant-result" onClick={() => { onOpenOpportunity(suggested); setOpen(false); }}><Sparkles /><span><small>Recomendación para vos</small><b>{suggested.title}</b><em>{goal === "aprender" ? "Te permite sumar habilidades nuevas." : goal === "comunidad" ? "Tiene impacto comunitario directo." : "Puede fortalecer tu trayectoria verificada."}</em></span><ChevronRight /></button>}</div>}</aside>;
+  useEffect(() => {
+    if (window.sessionStorage.getItem("via-assistant-seen")) return;
+    const timer = window.setTimeout(() => {
+      setOpen(true);
+      window.sessionStorage.setItem("via-assistant-seen", "true");
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const normalizedCause = cause.toLocaleLowerCase("es");
+  const matchesFormat = (item: Opportunity) => format === "cualquiera" || item.modality?.toLocaleLowerCase("es") === format;
+  const matchesCause = (item: Opportunity) => cause === "cualquiera" || `${item.category} ${item.title}`.toLocaleLowerCase("es").includes(normalizedCause);
+  const suggested = opportunities.find((item) => matchesFormat(item) && matchesCause(item))
+    ?? opportunities.find(matchesFormat)
+    ?? opportunities[0];
+  const verifiedCount = Object.keys(profile.verifiedSkills ?? {}).length;
+  const explanation = goal === "aprender"
+    ? "Suma tareas y habilidades que pueden ampliar tu trayectoria."
+    : goal === "comunidad"
+      ? "Prioriza una propuesta con impacto comunitario directo."
+      : "Aprovecha coincidencias con habilidades y experiencias de tu perfil.";
+
+  function closeAssistant() {
+    setOpen(false);
+    setStage("invite");
+  }
+
+  return <aside className={`guide-assistant ${open ? "open" : ""}`}>
+    {open && <div className="assistant-panel">
+      <header><Image src="/via-mecha.png" width={76} height={70} alt="Vía, camaleón mecha orientador" /><div><b>Vía</b><small>Asistente con IA + métricas</small></div><button className="assistant-close" onClick={closeAssistant} aria-label="Cerrar a Vía">×</button></header>
+      {stage === "invite" && <div className="assistant-invite"><p><b>¿Todavía no decidís dónde podés ayudar?</b> Te hago unas preguntas y buscamos una oportunidad para vos.</p><Button size="sm" onClick={() => setStage("questions")}>Sí, orientame <Sparkles /></Button><button onClick={closeAssistant}>Ahora no</button></div>}
+      {stage === "questions" && <div className="assistant-questions"><p>{user?.role === "volunteer" ? `Hola, ${profile.name.split(" ")[0]}. Voy a combinar tus respuestas con ${profile.completedExperiences} experiencias y ${verifiedCount} habilidades verificadas.` : "Voy a usar tus respuestas y las métricas disponibles de cada oportunidad."}</p><label>¿Qué buscás?<Select value={goal} onValueChange={setGoal}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="aprender">Aprender algo nuevo</SelectItem><SelectItem value="comunidad">Ayudar a mi comunidad</SelectItem><SelectItem value="experiencia">Fortalecer mi perfil</SelectItem></SelectContent></Select></label><label>¿Qué causa te interesa más?<Select value={cause} onValueChange={setCause}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="cualquiera">Quiero descubrir</SelectItem><SelectItem value="arte">Arte y creatividad</SelectItem><SelectItem value="ambiente">Ambiente</SelectItem><SelectItem value="educación">Educación</SelectItem><SelectItem value="comunidad">Comunidad</SelectItem></SelectContent></Select></label><label>¿Qué modalidad preferís?<Select value={format} onValueChange={setFormat}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="cualquiera">Cualquiera</SelectItem><SelectItem value="presencial">Presencial</SelectItem><SelectItem value="virtual">Virtual</SelectItem><SelectItem value="híbrida">Híbrida</SelectItem></SelectContent></Select></label><Button size="sm" onClick={() => setStage("result")}>Analizar opciones <Bot /></Button></div>}
+      {stage === "result" && suggested && <div className="assistant-recommendation"><span className="assistant-score">{suggested.compatibility ?? 82}%</span><p>La mejor opción que encontré para vos es:</p><button className="assistant-result" onClick={() => { onOpenOpportunity(suggested); closeAssistant(); }}><Sparkles /><span><small>Recomendación de Vía</small><b>{suggested.title}</b><em>{suggested.recommendedBecause || explanation}</em></span><ChevronRight /></button><button className="assistant-restart" onClick={() => setStage("questions")}>Cambiar mis respuestas</button></div>}
+    </div>}
+    <button className="assistant-launcher" onClick={() => setOpen((value) => !value)} aria-label="Abrir a Vía, asistente orientador"><Image src="/via-mecha.png" width={58} height={58} alt="" /><b>{open ? "Cerrar" : "Preguntale a Vía"}</b></button>
+  </aside>;
 }
 
 function RoleSwitcher({ open, onOpenChange, onUser }: { open: boolean; onOpenChange: (open: boolean) => void; onUser: (user: SessionUser) => void }) {

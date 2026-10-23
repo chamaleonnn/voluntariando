@@ -15,6 +15,7 @@ Sitio publicado: https://red-cercana-tao.web.app
 - solicitud del voluntario y aceptación o rechazo de la organización;
 - registro de la experiencia realizada, sus tareas y habilidades observadas;
 - recomendaciones ordenadas por compatibilidad y acompañadas por una explicación breve;
+- Vía, un camaleón mecha orientador que combina preguntas breves con las métricas del perfil;
 - IA como apoyo semántico, sin inventar información ni cambiar el porcentaje.
 
 El porcentaje usa las ponderaciones documentadas: habilidades 30 %, intereses 20 %, disponibilidad 20 %, ubicación/modalidad 15 % y experiencias previas 15 %.
