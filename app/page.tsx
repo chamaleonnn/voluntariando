@@ -205,7 +205,7 @@ function SiteHeader({ screen, user, onTheme, onNavigate, onLogin, onSwitchRole, 
 }) {
   const account = user ? screenForRole(user.role) : "volunteer";
   return <header className="site-header">
-    <button className="brand" onClick={() => onNavigate("landing")}><span className="brand-mark"><HeartHandshake /></span><span>Red Cercana<small>identidad provisoria</small></span></button>
+    <button className="brand" onClick={() => onNavigate("landing")}><span className="brand-mark"><HeartHandshake /></span><span>VoluntarIAndo<small>encontrá dónde ayudar</small></span></button>
     <nav className="main-nav" aria-label="Navegación principal"><button className={screen === "landing" ? "active" : ""} onClick={() => onNavigate("landing")}>Inicio</button><button className={screen === "opportunities" ? "active" : ""} onClick={() => onNavigate("opportunities")}>Oportunidades</button>{user && <button className={screen === account ? "active" : ""} onClick={() => onNavigate(account)}>Mi espacio</button>}</nav>
     <div className="header-account"><Button className="theme-toggle" variant="ghost" size="icon" onClick={onTheme} aria-label="Cambiar tema de color"><Moon className="theme-icon-light" /><Sun className="theme-icon-dark" /></Button>{user ? <><button className="account-chip" onClick={onSwitchRole} title="Cambiar rol"><span>{user.displayName.charAt(0)}</span><b>{user.displayName}</b><UserCog /></button><Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Cerrar sesión"><LogOut /></Button></> : <Button className="soft-button" onClick={onLogin}>Ingresar</Button>}</div>
   </header>;

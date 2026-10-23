@@ -2,7 +2,7 @@
 
 ## Explicación de un minuto
 
-Red Cercana conecta voluntarios con organizaciones mediante oportunidades. Una persona completa su perfil y recibe recomendaciones ordenadas por un porcentaje explicable. Al mostrar interés, la organización acepta o rechaza la solicitud. Después de realizar la actividad, la organización registra las tareas y habilidades observadas; eso actualiza la trayectoria y mejora recomendaciones futuras.
+VoluntarIAndo conecta voluntarios con organizaciones mediante oportunidades. Una persona completa su perfil y recibe recomendaciones ordenadas por un porcentaje explicable. Al mostrar interés, la organización acepta o rechaza la solicitud. Después de realizar la actividad, la organización registra las tareas y habilidades observadas; eso actualiza la trayectoria y mejora recomendaciones futuras.
 
 ## Cómo explicar las recomendaciones
 

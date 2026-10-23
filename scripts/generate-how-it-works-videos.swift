@@ -133,7 +133,7 @@ func renderFrame(_ context: CGContext, spec: VideoSpec, time: Double, duration: 
     roundedRect(CGRect(x: 30, y: 24, width: 900, height: 58), radius: 20, fill: color(0xFFFFFF, alpha: 0.76), stroke: color(0xFFFFFF, alpha: 0.92))
     roundedRect(CGRect(x: 47, y: 34, width: 38, height: 38), radius: 13, fill: color(0xDDF0E5))
     drawText("R", in: CGRect(x: 47, y: 40, width: 38, height: 24), size: 18, weight: .bold, color: color(0x176B57), alignment: .center)
-    drawText("RED CERCANA", in: CGRect(x: 98, y: 43, width: 180, height: 24), size: 14, weight: .bold, color: color(0x24483F))
+    drawText("VoluntarIAndo", in: CGRect(x: 98, y: 43, width: 180, height: 24), size: 14, weight: .bold, color: color(0x24483F))
     drawText("INICIO     OPORTUNIDADES     MI ESPACIO", in: CGRect(x: 410, y: 44, width: 410, height: 22), size: 11, weight: .semibold, color: color(0x667A72), alignment: .center)
 
     let overallProgress = CGFloat(time / duration)
@@ -176,7 +176,7 @@ func renderFrame(_ context: CGContext, spec: VideoSpec, time: Double, duration: 
         drawText("Podés probarlo dentro del prototipo.", in: CGRect(x: 180, y: 310, width: 600, height: 40), size: 18, weight: .regular, color: color(0x60736B, alpha: appear), alignment: .center)
     }
 
-    drawText("Prototipo tecnológico de voluntariado", in: CGRect(x: 45, y: 508, width: 870, height: 18), size: 10, weight: .medium, color: color(0x6C7C76), alignment: .center)
+    drawText("VoluntarIAndo · encontrá dónde ayudar", in: CGRect(x: 45, y: 508, width: 870, height: 18), size: 10, weight: .medium, color: color(0x6C7C76), alignment: .center)
 
     NSGraphicsContext.restoreGraphicsState()
 }

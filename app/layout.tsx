@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Red Cercana — Voluntariado cerca tuyo",
+  title: "VoluntarIAndo — Encontrá dónde ayudar",
   description: "Encontrá oportunidades de voluntariado por ubicación y fecha.",
   icons: {
     icon: "/favicon.svg",

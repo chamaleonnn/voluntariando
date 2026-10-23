@@ -1,6 +1,8 @@
-# Red Cercana
+# VoluntarIAndo
 
 Prototipo tecnológico de tesis para vincular personas voluntarias con organizaciones. Los ejemplos iniciales son de Córdoba, pero provincia y modalidad son datos abiertos para que el sistema pueda usarse en otros lugares.
+
+**Título propuesto para la tesis:** *VoluntarIAndo: diseño y desarrollo de un prototipo tecnológico para vincular voluntarios con oportunidades mediante recomendaciones personalizadas.*
 
 Sitio publicado: https://red-cercana-tao.web.app
 
