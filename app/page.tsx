@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight, Ban, Bot, Building2, CalendarDays, Check, ChevronRight, CirclePlay, Clock3,
-  Globe2, HeartHandshake, LogOut, Map, MapPin, Moon, Pause, Pencil, Plus, Search, Settings2,
+  Globe2, HeartHandshake, LogOut, Map, MapPin, Moon, Pencil, Plus, Search, Settings2,
   Shield, ShieldCheck, Sparkles, Sun, Trash2, UserCog, UserRound, Users,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -214,10 +214,10 @@ function SiteHeader({ screen, user, onTheme, onNavigate, onLogin, onSwitchRole, 
 function Landing({ opportunities, onExplore, onLogin }: { opportunities: Opportunity[]; onExplore: () => void; onLogin: () => void }) {
   const [guide, setGuide] = useState<number | null>(null);
   const steps = [
-    { title: "Creá tu perfil", text: "Registrá intereses, habilidades y ubicación.", scenes: ["Ingresá con Google", "Elegí Voluntario", "Completá tus intereses"] },
-    { title: "Recibí recomendaciones", text: "El sistema calcula y explica la compatibilidad.", scenes: ["Analizamos tu trayectoria", "Comparamos habilidades", "Ordenamos las oportunidades"] },
-    { title: "Mostrá interés", text: "La organización acepta o rechaza la solicitud.", scenes: ["Abrí una oportunidad", "Revisá tareas y lugar", "Marcá Me interesa"] },
-    { title: "Sumá experiencia", text: "Las habilidades verificadas actualizan tu trayectoria.", scenes: ["La organización completa la experiencia", "El administrador valida", "Tu perfil aprende y mejora"] },
+    { title: "Creá tu perfil", text: "Registrá intereses, habilidades y ubicación.", videoSrc: "/videos/crear-perfil.mp4", posterSrc: "/videos/crear-perfil.png" },
+    { title: "Recibí recomendaciones", text: "El sistema calcula y explica la compatibilidad.", videoSrc: "/videos/recibir-recomendaciones.mp4", posterSrc: "/videos/recibir-recomendaciones.png" },
+    { title: "Mostrá interés", text: "La organización acepta o rechaza la solicitud.", videoSrc: "/videos/mostrar-interes.mp4", posterSrc: "/videos/mostrar-interes.png" },
+    { title: "Sumá experiencia", text: "Las habilidades verificadas actualizan tu trayectoria.", videoSrc: "/videos/sumar-experiencia.mp4", posterSrc: "/videos/sumar-experiencia.png" },
   ];
   return <>
     <section className="hero-section document-hero">
@@ -234,10 +234,9 @@ function Step({ number, title, text, onOpen }: { number: string; title: string; 
   return <button className="step-card" onClick={onOpen}><span>{number}</span><div><h3>{title}</h3><p>{text}</p><small><CirclePlay /> Ver paso a paso</small></div></button>;
 }
 
-function StepGuideDialog({ step, number, open, onOpenChange }: { step: { title: string; text: string; scenes: string[] } | null; number: number; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [playing, setPlaying] = useState(true);
+function StepGuideDialog({ step, number, open, onOpenChange }: { step: { title: string; text: string; videoSrc: string; posterSrc: string } | null; number: number; open: boolean; onOpenChange: (open: boolean) => void }) {
   if (!step) return null;
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="guide-dialog"><DialogHeader><DialogTitle>Paso {number}: {step.title}</DialogTitle><DialogDescription>{step.text}</DialogDescription></DialogHeader><div className={`walkthrough-video ${playing ? "playing" : "paused"}`}><div className="video-toolbar"><span>Guía animada · 00:45</span><button onClick={() => setPlaying((value) => !value)} aria-label={playing ? "Pausar guía" : "Reproducir guía"}>{playing ? <Pause /> : <CirclePlay />}</button></div><div className="video-scenes">{step.scenes.map((scene, index) => <div key={scene}><span>{index + 1}</span><b>{scene}</b></div>)}</div><div className="video-progress"><i /></div></div><DialogFooter><Button onClick={() => onOpenChange(false)}>Entendido</Button></DialogFooter></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="guide-dialog"><DialogHeader><DialogTitle>Paso {number}: {step.title}</DialogTitle><DialogDescription>{step.text}</DialogDescription></DialogHeader><video className="walkthrough-player" src={step.videoSrc} poster={step.posterSrc} controls autoPlay muted playsInline preload="metadata">Tu navegador no puede reproducir este video.</video><p className="video-caption">Video de 15 segundos · sin audio · texto paso a paso</p><DialogFooter><Button onClick={() => onOpenChange(false)}>Entendido</Button></DialogFooter></DialogContent></Dialog>;
 }
 
 function OpportunityFeed({ opportunities, user, onOpen }: { opportunities: Opportunity[]; user: SessionUser | null; onOpen: (item: Opportunity) => void }) {
