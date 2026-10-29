@@ -346,7 +346,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .dialog-columns p { display: flex; align-items: center; gap: 6px; margin: 6px 0; color: #64766d; font-size: .72rem; }
 .dialog-columns p svg { width: 15px; color: #38806b; }
 .privacy-note { background: #eaf4ec; color: #3c6758; }
-.auth-dialog { max-width: 500px !important; padding: 30px !important; }
+.auth-dialog {
+  width: min(500px, calc(100vw - 24px)) !important;
+  max-width: 500px !important;
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 30px !important;
+}
 .auth-mark { width: 48px; height: 48px; display: grid; place-items: center; margin-bottom: 6px; border-radius: 16px 16px 16px 5px; background: #dff1e3; color: #21705b; }
 .google-button { height: 48px; gap: 10px; }
 .google-button > span { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; background: conic-gradient(#4285f4 0 25%,#34a853 0 50%,#fbbc05 0 75%,#ea4335 0); color: white; font-weight: 900; }
@@ -476,6 +484,20 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .panel-card.wide-panel { grid-column: 1; }
   .featured-medals, .mini-opportunity-grid, .volunteer-grid-cards { grid-template-columns: 1fr 1fr; }
   .dialog-columns { grid-template-columns: 1fr; }
+  .auth-dialog {
+    width: calc(100vw - 20px) !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 20px);
+    gap: 12px;
+    padding: 20px 18px !important;
+    border-radius: 20px;
+  }
+  .auth-dialog [data-slot="dialog-header"] { padding-right: 24px; }
+  .auth-dialog .auth-mark { width: 42px; height: 42px; margin-bottom: 0; }
+  .auth-dialog .google-button { min-height: 44px; }
+  .auth-dialog .demo-hint { margin: 0; padding: 8px 10px; }
+  .auth-dialog .demo-role-grid { gap: 7px; }
+  .auth-dialog .demo-role-grid button { min-height: 54px; padding: 9px 11px; }
   .medal-catalog { grid-template-columns: repeat(2, 1fr); }
   .create-form { grid-template-columns: 1fr; }
   .create-form .full { grid-column: 1; }
