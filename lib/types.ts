@@ -36,6 +36,7 @@ export type Opportunity = {
   };
   visibility: OpportunityVisibility;
   status: OpportunityStatus;
+  simulated?: boolean;
   moderationReason?: string;
   moderatedAt?: string;
   moderatedBy?: string;

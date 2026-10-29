@@ -98,6 +98,23 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .landing-opportunity-showcase h3 { margin: 7px 0; font-size: .95rem; }
 .landing-opportunity-showcase p { display: flex; align-items: center; gap: 5px; margin: 0; color: #78867f; font-size: .68rem; }
 .landing-opportunity-showcase p svg { width: 13px; }
+.simulated-seal {
+  display: inline-flex !important;
+  align-items: center;
+  width: max-content;
+  margin-left: 6px;
+  padding: 4px 7px;
+  border: 1px solid rgba(92, 73, 116, .18) !important;
+  border-radius: 999px;
+  background: rgba(246, 241, 252, .94) !important;
+  color: #654d7c !important;
+  font-size: .6rem !important;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none !important;
+  white-space: nowrap;
+}
 .review-showcase { position: relative; min-height: 470px; display: grid; align-content: center; gap: 12px; isolation: isolate; }
 .review-showcase .review-card { width: min(100%, 390px); margin-left: auto; transform: rotate(1.5deg); }
 .review-showcase .review-card:nth-of-type(2) { margin-right: 80px; margin-left: 0; transform: rotate(-2deg); }
@@ -643,6 +660,7 @@ body { background: var(--app-surface); transition: background-color .45s ease, c
 :root[data-theme="dark"] .recommendation-reason { color: #ead2a9; }
 :root[data-theme="dark"] .demo-role-grid button, :root[data-theme="dark"] .compatibility-detail > div span { border-color: var(--glass-border); background: rgba(255,255,255,.06); color: #e8f3ef; }
 :root[data-theme="dark"] .demo-hint { background: rgba(230,182,118,.12); color: #dec79f; }
+:root[data-theme="dark"] .simulated-seal { border-color: rgba(206,180,235,.25) !important; background: rgba(120,90,150,.24) !important; color: #e0c8f4 !important; }
 :root[data-theme="dark"] .assistant-panel { box-shadow: 0 24px 80px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08); }
 :root[data-theme="dark"] .assistant-launcher { box-shadow: none; }
 
