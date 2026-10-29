@@ -16,12 +16,12 @@
 
 # next.js
 /.next/
-/.vinext/
 /out/
 
 # misc
 .DS_Store
 *.pem
+/.idea/
 
 # debug
 npm-debug.log*
@@ -38,12 +38,6 @@ yarn-error.log*
 
 # typescript
 next-env.d.ts
-/dist/
-/.wrangler/
 /.firebase/
-# Checkout-local execution profile and tool state; never publish them.
-/.sites-runtime/
 /.agents/
 /.codex/
-/outputs/
-/work/

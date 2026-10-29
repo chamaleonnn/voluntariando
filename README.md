@@ -44,6 +44,7 @@ npx firebase-tools deploy --only firestore:rules,hosting
 ## Documentación
 
 - [Configuración de Firebase](docs/FIREBASE_SETUP.md)
+- [Abrir y ejecutar en IntelliJ IDEA](docs/INTELLIJ_IDEA.md)
 - [Arquitectura y datos](docs/ARQUITECTURA.md)
 - [Guía para la defensa](docs/GUIA_DEFENSA.md)
 - [Plan de pruebas](docs/PRUEBAS.md)
