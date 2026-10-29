@@ -4,7 +4,7 @@ Prototipo tecnológico de tesis para vincular personas voluntarias con organizac
 
 **Título propuesto para la tesis:** *VoluntarIAndo: diseño y desarrollo de un prototipo tecnológico para vincular voluntarios con oportunidades mediante recomendaciones personalizadas.*
 
-Sitio publicado: https://red-cercana-tao.web.app
+Sitio publicado: https://voluntariando.web.app
 
 ## Alcance del E3
 

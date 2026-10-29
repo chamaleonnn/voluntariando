@@ -3,7 +3,7 @@
 ## Proyecto utilizado
 
 - ID: `red-cercana-tao`
-- Hosting: https://red-cercana-tao.web.app
+- Hosting: https://voluntariando.web.app
 - Región de Firestore: `southamerica-east1`
 - Administrador inicial: `leybatao014@gmail.com`
 
