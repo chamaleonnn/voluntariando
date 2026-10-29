@@ -36,6 +36,9 @@ export type Opportunity = {
   };
   visibility: OpportunityVisibility;
   status: OpportunityStatus;
+  moderationReason?: string;
+  moderatedAt?: string;
+  moderatedBy?: string;
 };
 
 export type SessionUser = {
@@ -43,8 +46,15 @@ export type SessionUser = {
   email: string;
   displayName: string;
   role: "volunteer" | "organization" | "admin";
-  status?: "active";
+  status?: "active" | "suspended";
   isDemo?: boolean;
+};
+
+// Vista administrativa de una cuenta registrada en Firebase.
+export type PlatformUser = SessionUser & {
+  createdAt?: string;
+  suspendedUntil?: string;
+  suspensionReason?: string;
 };
 
 export type Application = {

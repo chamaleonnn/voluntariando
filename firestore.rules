@@ -8,6 +8,7 @@ service cloud.firestore {
       return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : null;
     }
+    function isAdmin() { return userRole() == "admin"; }
     function isOrganizationAdmin(organizationId) {
       return signedIn()
         && exists(/databases/$(database)/documents/organizationMembers/$(organizationId + "_" + request.auth.uid))
@@ -18,13 +19,19 @@ service cloud.firestore {
     match /users/{userId} {
       allow create: if owns(userId) && request.resource.data.email == request.auth.token.email
         && request.resource.data.role in ["volunteer", "organization"] && request.resource.data.status == "active";
-      allow read: if owns(userId);
-      allow update: if owns(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName", "lastLoginAt"]);
+      allow read: if owns(userId) || isAdmin();
+      allow update: if (
+        owns(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName", "lastLoginAt"])
+      ) || (
+        isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "displayName", "status", "suspensionReason", "suspendedUntil", "moderatedBy", "updatedAt"
+        ])
+      );
     }
 
     match /volunteerProfiles/{userId} {
       allow create: if owns(userId);
-      allow read: if owns(userId) || userRole() == "organization";
+      allow read: if owns(userId) || userRole() == "organization" || isAdmin();
       allow update: if (
         owns(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "name", "initials", "location", "bio", "interests", "declaredSkills", "availability", "updatedAt"
@@ -40,9 +47,9 @@ service cloud.firestore {
     }
 
     match /organizations/{organizationId} {
-      allow read: if resource.data.status == "verified" || owns(resource.data.ownerId) || isOrganizationAdmin(organizationId);
+      allow read: if resource.data.status == "verified" || owns(resource.data.ownerId) || isOrganizationAdmin(organizationId) || isAdmin();
       allow create: if owns(organizationId) && request.resource.data.ownerId == request.auth.uid && request.resource.data.status == "verified";
-      allow update: if (owns(resource.data.ownerId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+      allow update: if isAdmin() || (owns(resource.data.ownerId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         "name", "province", "location", "contact", "description", "updatedAt"
       ]));
     }
@@ -55,9 +62,9 @@ service cloud.firestore {
     }
 
     match /opportunities/{opportunityId} {
-      allow read: if publicOpportunity(resource.data) || isOrganizationAdmin(resource.data.organizationId);
-      allow create: if isOrganizationAdmin(request.resource.data.organizationId);
-      allow update: if isOrganizationAdmin(resource.data.organizationId);
+      allow read: if publicOpportunity(resource.data) || isOrganizationAdmin(resource.data.organizationId) || isAdmin();
+      allow create: if isOrganizationAdmin(request.resource.data.organizationId) || isAdmin();
+      allow update: if isOrganizationAdmin(resource.data.organizationId) || isAdmin();
     }
 
     match /applications/{applicationId} {
@@ -65,27 +72,32 @@ service cloud.firestore {
         && applicationId == request.resource.data.opportunityId + "_" + request.auth.uid
         && request.resource.data.status == "pending"
         && publicOpportunity(get(/databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)).data);
-      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId));
-      allow update: if isOrganizationAdmin(resource.data.organizationId);
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
+      allow update: if isOrganizationAdmin(resource.data.organizationId) || isAdmin();
     }
 
     match /matches/{matchId} {
       allow create: if isOrganizationAdmin(request.resource.data.organizationId);
-      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId));
-      allow update: if isOrganizationAdmin(resource.data.organizationId);
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
+      allow update: if isOrganizationAdmin(resource.data.organizationId) || isAdmin();
     }
 
     match /participations/{participationId} {
       allow create: if isOrganizationAdmin(request.resource.data.organizationId)
         && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.status == "completed"
         && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.userId == request.resource.data.userId;
-      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId));
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
     }
 
     match /feedback/{feedbackId} {
       allow create: if isOrganizationAdmin(request.resource.data.organizationId)
         && existsAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId));
-      allow read: if signedIn() && (resource.data.volunteerId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId));
+      allow read: if signedIn() && (resource.data.volunteerId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
+    }
+
+    match /adminActions/{actionId} {
+      allow create, read: if isAdmin();
+      allow update, delete: if false;
     }
 
     match /{document=**} { allow read, write: if false; }

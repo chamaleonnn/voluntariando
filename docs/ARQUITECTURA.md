@@ -25,6 +25,13 @@ Navegador
 | `matches` | Participación confirmada. |
 | `participations` | Registro de la experiencia completada. |
 | `feedback` | Tareas realizadas y habilidades observadas. |
+| `adminActions` | Historial inmutable de suspensiones, correcciones y moderaciones. |
+
+## Administración
+
+Las cuentas con rol `admin` pueden consultar usuarios, correos, solicitudes y publicaciones. Las suspensiones tienen motivo y fecha límite; las oportunidades se ocultan cambiando su estado en lugar de borrarse físicamente. Cada intervención crea un documento en `adminActions` con administrador, objetivo, motivo y fecha.
+
+El rol administrador nunca puede elegirse durante el registro público. Para incorporar uno nuevo, otro administrador debe asignar el rol desde Firebase durante el piloto.
 
 ## Compatibilidad
 

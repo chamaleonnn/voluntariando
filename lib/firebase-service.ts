@@ -24,7 +24,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "@/lib/firebase";
-import type { Application, Opportunity, Organization, SessionUser, VolunteerProfile } from "@/lib/types";
+import type { Application, Opportunity, OpportunityStatus, Organization, PlatformUser, SessionUser, VolunteerProfile } from "@/lib/types";
 
 function requireDb() {
   if (!db) throw new Error("Firebase todavía no está configurado.");
@@ -48,11 +48,17 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
   const userRef = doc(firestore, "users", user.uid);
   const snapshot = await getDoc(userRef);
   const stored = snapshot.data();
-  const role: SessionUser["role"] = stored?.role === "organization" || stored?.role === "volunteer"
+  const role: SessionUser["role"] = stored?.role === "organization" || stored?.role === "volunteer" || stored?.role === "admin"
     ? stored.role
     : requestedRole;
   const email = user.email ?? "";
   const batch = writeBatch(firestore);
+
+  if (stored?.status === "suspended") {
+    const until = stored.suspendedUntil instanceof Timestamp ? stored.suspendedUntil.toDate() : null;
+    const detail = until ? ` hasta el ${until.toLocaleDateString("es-AR")}` : "";
+    throw new Error(`La cuenta está suspendida${detail}. ${stored.suspensionReason ?? "Contactá a administración."}`);
+  }
 
   if (!snapshot.exists()) {
     batch.set(userRef, {
@@ -110,7 +116,7 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
     email,
     displayName: user.displayName ?? email.split("@")[0] ?? "Usuario",
     role,
-    status: "active",
+    status: stored?.status === "suspended" ? "suspended" : "active",
   };
 }
 
@@ -171,6 +177,105 @@ export function observeOrganizations(callback: (items: Organization[]) => void, 
   if (!db) return () => undefined;
   const source = query(collection(db, "organizations"), where("status", "==", "verified"));
   return onSnapshot(source, (snapshot) => callback(snapshot.docs.map((item) => mapDoc<Organization>(item))), onError);
+}
+
+// El panel administrativo necesita el listado completo de cuentas, incluidos sus correos y estados.
+export function observeAdminUsers(callback: (items: PlatformUser[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  return onSnapshot(collection(db, "users"), (snapshot) => {
+    const items = snapshot.docs.map((item) => {
+      const data = item.data();
+      return {
+        uid: item.id,
+        email: String(data.email ?? ""),
+        displayName: String(data.displayName ?? data.email ?? "Usuario"),
+        role: data.role as PlatformUser["role"],
+        status: data.status === "suspended" ? "suspended" : "active",
+        createdAt: asIsoDate(data.createdAt),
+        suspendedUntil: data.suspendedUntil instanceof Timestamp ? data.suspendedUntil.toDate().toISOString() : undefined,
+        suspensionReason: typeof data.suspensionReason === "string" ? data.suspensionReason : undefined,
+      } satisfies PlatformUser;
+    });
+    callback(items.sort((a, b) => a.displayName.localeCompare(b.displayName, "es")));
+  }, onError);
+}
+
+// A diferencia del catálogo público, administración también ve publicaciones cerradas.
+export function observeAdminOpportunities(callback: (items: Opportunity[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  return onSnapshot(collection(db, "opportunities"), (snapshot) => {
+    callback(snapshot.docs.map((item) => mapDoc<Opportunity>(item)));
+  }, onError);
+}
+
+// Administración puede auditar todas las solicitudes, independientemente de la organización.
+export function observeAdminApplications(callback: (items: Application[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  return onSnapshot(collection(db, "applications"), (snapshot) => {
+    callback(snapshot.docs.map((item) => mapDoc<Application>(item)));
+  }, onError);
+}
+
+// Modifica una cuenta y registra quién hizo el cambio, cuándo y por qué.
+export async function adminUpdateUser(
+  actor: SessionUser,
+  target: PlatformUser,
+  values: { displayName: string; status: "active" | "suspended"; suspensionDays: number; reason: string },
+) {
+  const firestore = requireDb();
+  const batch = writeBatch(firestore);
+  const suspendedUntil = values.status === "suspended"
+    ? new Date(Date.now() + Math.max(1, values.suspensionDays) * 24 * 60 * 60 * 1000)
+    : null;
+  batch.update(doc(firestore, "users", target.uid), {
+    displayName: values.displayName,
+    status: values.status,
+    suspensionReason: values.status === "suspended" ? values.reason : null,
+    suspendedUntil,
+    moderatedBy: actor.uid,
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(doc(collection(firestore, "adminActions")), {
+    actorId: actor.uid,
+    actorEmail: actor.email,
+    action: values.status === "suspended" ? "suspend_user" : "update_or_restore_user",
+    targetType: "user",
+    targetId: target.uid,
+    reason: values.reason,
+    createdAt: serverTimestamp(),
+  });
+  await batch.commit();
+  return { ...target, displayName: values.displayName, status: values.status, suspendedUntil: suspendedUntil?.toISOString(), suspensionReason: values.status === "suspended" ? values.reason : undefined };
+}
+
+// Corrige el contenido o cambia la visibilidad de una oportunidad sin destruir información.
+export async function adminUpdateOpportunity(
+  actor: SessionUser,
+  target: Opportunity,
+  values: { title: string; description: string; status: OpportunityStatus; reason: string },
+) {
+  const firestore = requireDb();
+  const batch = writeBatch(firestore);
+  batch.update(doc(firestore, "opportunities", target.id), {
+    title: values.title,
+    description: values.description,
+    status: values.status,
+    moderationReason: values.reason,
+    moderatedBy: actor.uid,
+    moderatedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(doc(collection(firestore, "adminActions")), {
+    actorId: actor.uid,
+    actorEmail: actor.email,
+    action: values.status === "closed" ? "hide_opportunity" : "update_or_restore_opportunity",
+    targetType: "opportunity",
+    targetId: target.id,
+    reason: values.reason,
+    createdAt: serverTimestamp(),
+  });
+  await batch.commit();
+  return { ...target, ...values, moderatedBy: actor.uid, moderatedAt: new Date().toISOString() };
 }
 
 export async function createApplication(opportunity: Opportunity, user: SessionUser, message = "Me interesa participar.") {

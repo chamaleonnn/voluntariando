@@ -32,6 +32,16 @@ Comprueba lint, tipos, compilación de producción y sintaxis de la función.
 - Puede aceptar o rechazar personas interesadas.
 - Puede marcar una experiencia realizada y registrar tareas y habilidades observadas.
 
+### Administración
+
+- Ve cuentas, correos, roles y estados desde Firebase.
+- Puede corregir el nombre visible de una cuenta.
+- Puede suspenderla por una cantidad definida de días y registrar el motivo.
+- Puede reactivar una cuenta sin borrar su historial.
+- Puede corregir, ocultar y restaurar oportunidades.
+- Cada cambio crea un registro inmutable en `adminActions`.
+- El administrador no puede suspender su propia cuenta desde la interfaz.
+
 ### Recomendación
 
 - Las ponderaciones suman 100 %.

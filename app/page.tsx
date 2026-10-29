@@ -5,7 +5,7 @@ import Image from "next/image";
 import {
   ArrowRight, Ban, Bot, Building2, CalendarDays, Check, ChevronRight, CirclePlay, Clock3,
   Globe2, HeartHandshake, LogOut, Map, MapPin, Moon, Pencil, Plus, Search, Settings2,
-  Shield, ShieldCheck, Sparkles, Sun, Trash2, UserCog, UserRound, Users,
+  Shield, ShieldCheck, Sparkles, Sun, UserCog, UserRound, Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,14 +19,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/sonner";
 import { DEMO_APPLICATIONS, DEMO_OPPORTUNITIES, DEMO_VOLUNTEERS } from "@/lib/demo-data";
 import {
-  createApplication, createOpportunity, firebaseSignInWithGoogle, firebaseSignOut,
-  observeApplications, observeAuth, observeOpportunities, observeOrganizations,
+  adminUpdateOpportunity, adminUpdateUser, createApplication, createOpportunity, firebaseSignInWithGoogle, firebaseSignOut,
+  observeAdminApplications, observeAdminOpportunities, observeAdminUsers, observeApplications, observeAuth, observeOpportunities, observeOrganizations,
   observeVolunteerProfile, recordCompletedExperience, saveOrganizationProfile,
   saveVolunteerProfile, updateApplicationStatus, updateOpportunity,
 } from "@/lib/firebase-service";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { recommendOpportunities } from "@/lib/recommendations";
-import type { Application, Opportunity, Organization, SessionUser, VolunteerProfile } from "@/lib/types";
+import type { Application, Opportunity, OpportunityStatus, Organization, PlatformUser, SessionUser, VolunteerProfile } from "@/lib/types";
 
 type Screen = "landing" | "opportunities" | "volunteer" | "organization" | "admin";
 
@@ -191,7 +191,7 @@ export default function Home() {
             onOpportunities={setOpportunities} onApplications={setApplications} onProfile={setProfile}
           />
         )}
-        {screen === "admin" && user?.role === "admin" && <AdminPanel opportunities={opportunities} applications={applications} />}
+        {screen === "admin" && user?.role === "admin" && <AdminPanel user={user} opportunities={opportunities} applications={applications} />}
       </div>
       <GuideAssistant user={user} profile={profile} opportunities={recommended} onOpenOpportunity={setSelectedOpportunity} />
       <OpportunityDialog opportunity={selectedOpportunity} user={user} applications={applications} open={Boolean(selectedOpportunity)} onOpenChange={(open) => !open && setSelectedOpportunity(null)} onApply={apply} />
@@ -302,17 +302,78 @@ function OrganizationPanel({ user, organization, opportunities, applications, on
   </Dashboard>;
 }
 
-function AdminPanel({ opportunities, applications }: { opportunities: Opportunity[]; applications: Application[] }) {
-  const demoUsers = [DEMO_USERS.volunteer, DEMO_USERS.organization, DEMO_USERS.admin];
-  const simulate = (action: string, target: string) => toast.success(`${action}: ${target}`, { description: "Acción simulada en el prototipo. No modifica datos reales." });
-  return <Dashboard title="Administración" description="Supervisión general, moderación y corrección de la plataforma." icon={<Shield />} action={<Badge variant="secondary">Modo demostración</Badge>}>
-    <div className="stats-grid"><Stat label="Usuarios" value={demoUsers.length} detail="perfiles simulados" /><Stat label="Oportunidades" value={opportunities.length} detail="publicadas" /><Stat label="Solicitudes" value={applications.length} detail="registradas" /><Stat label="Alertas" value={2} detail="para revisar" /></div>
+function AdminPanel({ user, opportunities, applications }: { user: SessionUser; opportunities: Opportunity[]; applications: Application[] }) {
+  const demoUsers = Object.values(DEMO_USERS) as PlatformUser[];
+  const [managedUsers, setManagedUsers] = useState<PlatformUser[]>(demoUsers);
+  const [managedOpportunities, setManagedOpportunities] = useState<Opportunity[]>(opportunities);
+  const [managedApplications, setManagedApplications] = useState<Application[]>(applications);
+  const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
+
+  useEffect(() => {
+    if (user.isDemo) return;
+    const fail = (error: Error) => toast.error("No se pudo cargar administración", { description: error.message });
+    const stops = [
+      observeAdminUsers(setManagedUsers, fail),
+      observeAdminOpportunities(setManagedOpportunities, fail),
+      observeAdminApplications(setManagedApplications, fail),
+    ];
+    return () => stops.forEach((stop) => stop());
+  }, [user.isDemo]);
+
+  return <Dashboard title="Administración" description="Supervisión general, moderación y corrección de la plataforma." icon={<Shield />} action={<Badge variant="secondary">{user.isDemo ? "Modo demostración" : "Firebase activo"}</Badge>}>
+    <div className="stats-grid"><Stat label="Usuarios" value={managedUsers.length} detail="cuentas registradas" /><Stat label="Suspendidos" value={managedUsers.filter((item) => item.status === "suspended").length} detail="cuentas restringidas" /><Stat label="Oportunidades" value={managedOpportunities.length} detail="totales" /><Stat label="Solicitudes" value={managedApplications.length} detail="registradas" /></div>
     <div className="dashboard-grid admin-grid">
-      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Control de usuarios</span><h2>Perfiles, roles y contacto</h2></div></div><div className="admin-list">{demoUsers.map((item) => <div key={item.uid}><span className="admin-icon green">{item.role === "organization" ? <Building2 /> : item.role === "admin" ? <Shield /> : <UserRound />}</span><div><b>{item.displayName}</b><p>{item.email} · {item.role}</p></div><span className="inline-actions"><Button size="sm" variant="outline" onClick={() => simulate("Perfil corregido", item.displayName)}><Settings2 /> Corregir</Button><Button size="sm" variant="outline" onClick={() => simulate("Cuenta suspendida", item.displayName)}><Ban /> Suspender</Button></span></div>)}</div></section>
-      <section className="panel-card"><div className="panel-heading"><div><span>Moderación</span><h2>Contenido pendiente</h2></div></div><div className="admin-list"><div><span className="admin-icon amber"><ShieldCheck /></span><div><b>Foto de reseña</b><p>Requiere aprobación antes de publicarse.</p></div><Button size="sm" onClick={() => simulate("Foto aprobada", "reseña reciente")}>Revisar</Button></div><div><span className="admin-icon amber"><Bot /></span><div><b>Devolución de experiencia</b><p>Lista para validar antes del análisis asistido.</p></div><Button size="sm" onClick={() => simulate("Devolución validada", "experiencia")}>Validar</Button></div></div></section>
-      <section className="panel-card"><div className="panel-heading"><div><span>Acciones globales</span><h2>Intervención administrativa</h2></div></div><div className="admin-actions"><Button variant="outline" onClick={() => simulate("Oportunidad corregida", opportunities[0]?.title ?? "oportunidad")}><Pencil /> Editar publicación</Button><Button variant="outline" onClick={() => simulate("Contenido eliminado", "publicación denunciada")}><Trash2 /> Eliminar contenido</Button><Button variant="outline" onClick={() => simulate("Suspensión temporal aplicada", "cuenta reportada")}><Ban /> Suspender por tiempo</Button></div></section>
+      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Control de usuarios</span><h2>Perfiles, roles y contacto</h2></div></div><div className="admin-list">{managedUsers.map((item) => <div key={item.uid}><span className="admin-icon green">{item.role === "organization" ? <Building2 /> : item.role === "admin" ? <Shield /> : <UserRound />}</span><div><b>{item.displayName}</b><p>{item.email} · {item.role} · {item.status === "suspended" ? "suspendido" : "activo"}</p>{item.suspensionReason && <small>Motivo: {item.suspensionReason}</small>}</div><span className="inline-actions"><Badge variant={item.status === "suspended" ? "destructive" : "secondary"}>{item.status === "suspended" ? "Suspendido" : "Activo"}</Badge><Button size="sm" variant="outline" onClick={() => setSelectedUser(item)} disabled={item.uid === user.uid}><Settings2 /> Gestionar</Button></span></div>)}</div></section>
+      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Moderación</span><h2>Oportunidades</h2></div></div><div className="admin-list">{managedOpportunities.map((item) => <div key={item.id}><span className={`admin-icon ${item.status === "published" ? "green" : "amber"}`}>{item.status === "published" ? <ShieldCheck /> : <Ban />}</span><div><b>{item.title}</b><p>{item.organization} · {item.province} · {item.status === "published" ? "visible" : "oculta"}</p>{item.moderationReason && <small>Último motivo: {item.moderationReason}</small>}</div><Button size="sm" variant="outline" onClick={() => setSelectedOpportunity(item)}><Pencil /> Corregir</Button></div>)}</div></section>
+      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Trazabilidad</span><h2>Cómo funciona la intervención</h2></div></div><p className="panel-note">Las eliminaciones son reversibles: una oportunidad se cierra y una cuenta se suspende por un plazo definido. Cada cambio registra administrador, objetivo, motivo y fecha en <b>adminActions</b>.</p></section>
     </div>
+    <AdminUserDialog key={selectedUser?.uid ?? "no-user"} actor={user} target={selectedUser} open={Boolean(selectedUser)} onOpenChange={(open) => !open && setSelectedUser(null)} onSaved={(next) => setManagedUsers((items) => items.map((item) => item.uid === next.uid ? next : item))} />
+    <AdminOpportunityDialog key={selectedOpportunity?.id ?? "no-opportunity"} actor={user} target={selectedOpportunity} open={Boolean(selectedOpportunity)} onOpenChange={(open) => !open && setSelectedOpportunity(null)} onSaved={(next) => setManagedOpportunities((items) => items.map((item) => item.id === next.id ? next : item))} />
   </Dashboard>;
+}
+
+function AdminUserDialog({ actor, target, open, onOpenChange, onSaved }: { actor: SessionUser; target: PlatformUser | null; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (user: PlatformUser) => void }) {
+  const [loading, setLoading] = useState(false);
+  if (!target) return null;
+  const current = target;
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const status = String(form.get("status")) as "active" | "suspended";
+    const values = { displayName: String(form.get("displayName")).trim(), status, suspensionDays: Number(form.get("days") || 7), reason: String(form.get("reason")).trim() };
+    if (!values.displayName || !values.reason) return toast.error("Indicá el nombre y el motivo del cambio.");
+    setLoading(true);
+    try {
+      const next: PlatformUser = actor.isDemo ? { ...current, displayName: values.displayName, status: values.status, suspendedUntil: status === "suspended" ? new Date(Date.now() + values.suspensionDays * 86400000).toISOString() : undefined, suspensionReason: status === "suspended" ? values.reason : undefined } : await adminUpdateUser(actor, current, values);
+      onSaved(next);
+      onOpenChange(false);
+      toast.success(status === "suspended" ? "Cuenta suspendida" : "Cuenta actualizada y activa");
+    } catch (error) { toast.error("No se pudo modificar la cuenta", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); }
+    finally { setLoading(false); }
+  }
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="create-dialog"><DialogHeader><DialogTitle>Gestionar cuenta</DialogTitle><DialogDescription>{target.email} · {target.role}</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label className="full">Nombre visible<Input name="displayName" defaultValue={target.displayName} required /></label><label>Estado<Select name="status" defaultValue={target.status ?? "active"}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">Activa</SelectItem><SelectItem value="suspended">Suspendida</SelectItem></SelectContent></Select></label><label>Días de suspensión<Input type="number" name="days" min="1" max="365" defaultValue="7" /></label><label className="full">Motivo<Textarea name="reason" defaultValue={target.suspensionReason ?? "Corrección administrativa"} required /></label><DialogFooter className="full"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={loading}>{loading ? "Guardando…" : "Aplicar cambio"}</Button></DialogFooter></form></DialogContent></Dialog>;
+}
+
+function AdminOpportunityDialog({ actor, target, open, onOpenChange, onSaved }: { actor: SessionUser; target: Opportunity | null; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (opportunity: Opportunity) => void }) {
+  const [loading, setLoading] = useState(false);
+  if (!target) return null;
+  const current = target;
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const values = { title: String(form.get("title")).trim(), description: String(form.get("description")).trim(), status: String(form.get("status")) as OpportunityStatus, reason: String(form.get("reason")).trim() };
+    if (!values.title || !values.description || !values.reason) return toast.error("Completá el contenido y el motivo de moderación.");
+    setLoading(true);
+    try {
+      const next: Opportunity = actor.isDemo ? { ...current, title: values.title, description: values.description, status: values.status, moderatedBy: actor.uid, moderatedAt: new Date().toISOString(), moderationReason: values.reason } : await adminUpdateOpportunity(actor, current, values);
+      onSaved(next);
+      onOpenChange(false);
+      toast.success(values.status === "closed" ? "Oportunidad ocultada" : "Oportunidad actualizada");
+    } catch (error) { toast.error("No se pudo modificar la oportunidad", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); }
+    finally { setLoading(false); }
+  }
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="create-dialog"><DialogHeader><DialogTitle>Moderar oportunidad</DialogTitle><DialogDescription>{target.organization} · {target.province}</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label className="full">Título<Input name="title" defaultValue={target.title} required /></label><label className="full">Descripción<Textarea name="description" defaultValue={target.description} required /></label><label>Visibilidad<Select name="status" defaultValue={target.status}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="published">Publicada</SelectItem><SelectItem value="closed">Oculta</SelectItem></SelectContent></Select></label><label>Motivo<Input name="reason" defaultValue={target.moderationReason ?? "Revisión administrativa"} required /></label><DialogFooter className="full"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={loading}>{loading ? "Guardando…" : "Guardar intervención"}</Button></DialogFooter></form></DialogContent></Dialog>;
 }
 
 function GuideAssistant({ user, profile, opportunities, onOpenOpportunity }: { user: SessionUser | null; profile: VolunteerProfile; opportunities: Opportunity[]; onOpenOpportunity: (item: Opportunity) => void }) {
