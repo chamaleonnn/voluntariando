@@ -31,7 +31,7 @@ Navegador
 
 Las cuentas con rol `admin` pueden consultar usuarios, correos, solicitudes y publicaciones. Las suspensiones tienen motivo y fecha límite; las oportunidades se ocultan cambiando su estado en lugar de borrarse físicamente. Cada intervención crea un documento en `adminActions` con administrador, objetivo, motivo y fecha.
 
-El rol administrador nunca puede elegirse durante el registro público. Para incorporar uno nuevo, otro administrador debe asignar el rol desde Firebase durante el piloto.
+El acceso administrativo valida el correo autorizado del proyecto para crear o recuperar el primer administrador. Después, un administrador activo puede promover otras cuentas desde el mismo panel, lo que permite trabajar con varios administradores sin habilitar el rol al público general.
 
 ## Compatibilidad
 

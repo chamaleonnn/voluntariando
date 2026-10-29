@@ -18,13 +18,22 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow create: if owns(userId) && request.resource.data.email == request.auth.token.email
-        && request.resource.data.role in ["volunteer", "organization"] && request.resource.data.status == "active";
+        && request.resource.data.status == "active"
+        && (
+          request.resource.data.role in ["volunteer", "organization"]
+          || (request.resource.data.role == "admin" && request.auth.token.email == "leybatao014@gmail.com")
+        );
       allow read: if owns(userId) || isAdmin();
       allow update: if (
         owns(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName", "lastLoginAt"])
       ) || (
+        owns(userId)
+        && request.auth.token.email == "leybatao014@gmail.com"
+        && request.resource.data.role == "admin"
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["role", "lastLoginAt"])
+      ) || (
         isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "displayName", "status", "suspensionReason", "suspendedUntil", "moderatedBy", "updatedAt"
+          "displayName", "role", "status", "suspensionReason", "suspendedUntil", "moderatedBy", "updatedAt"
         ])
       );
     }

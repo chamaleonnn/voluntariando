@@ -48,10 +48,13 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
   const userRef = doc(firestore, "users", user.uid);
   const snapshot = await getDoc(userRef);
   const stored = snapshot.data();
-  const role: SessionUser["role"] = stored?.role === "organization" || stored?.role === "volunteer" || stored?.role === "admin"
+  const email = user.email ?? "";
+  const bootstrapAdmin = requestedRole === "admin" && email === "leybatao014@gmail.com";
+  const role: SessionUser["role"] = bootstrapAdmin
+    ? "admin"
+    : stored?.role === "organization" || stored?.role === "volunteer" || stored?.role === "admin"
     ? stored.role
     : requestedRole;
-  const email = user.email ?? "";
   const batch = writeBatch(firestore);
 
   if (stored?.status === "suspended") {
@@ -87,7 +90,7 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
         visibleToVolunteers: true,
         updatedAt: serverTimestamp(),
       });
-    } else {
+    } else if (role === "organization") {
       batch.set(doc(firestore, "organizations", user.uid), {
         ownerId: user.uid,
         name: user.displayName ?? "Organización",
@@ -107,7 +110,7 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
       });
     }
   } else {
-    batch.update(userRef, { lastLoginAt: serverTimestamp() });
+    batch.update(userRef, { lastLoginAt: serverTimestamp(), ...(bootstrapAdmin ? { role: "admin" } : {}) });
   }
 
   await batch.commit();
@@ -141,7 +144,12 @@ export async function firebaseSignInWithGoogle(role: SessionUser["role"] = "volu
   window.localStorage.setItem("red-cercana-requested-role", role);
   const result = await signInWithPopup(auth, new GoogleAuthProvider());
   window.localStorage.removeItem("red-cercana-requested-role");
-  return toSessionUser(result.user, role);
+  const session = await toSessionUser(result.user, role);
+  if (role === "admin" && session.role !== "admin") {
+    await signOut(auth);
+    throw new Error("Esta cuenta no tiene permisos de administración.");
+  }
+  return session;
 }
 
 export async function firebaseSignOut() {
@@ -220,7 +228,7 @@ export function observeAdminApplications(callback: (items: Application[]) => voi
 export async function adminUpdateUser(
   actor: SessionUser,
   target: PlatformUser,
-  values: { displayName: string; status: "active" | "suspended"; suspensionDays: number; reason: string },
+  values: { displayName: string; role: SessionUser["role"]; status: "active" | "suspended"; suspensionDays: number; reason: string },
 ) {
   const firestore = requireDb();
   const batch = writeBatch(firestore);
@@ -229,6 +237,7 @@ export async function adminUpdateUser(
     : null;
   batch.update(doc(firestore, "users", target.uid), {
     displayName: values.displayName,
+    role: values.role,
     status: values.status,
     suspensionReason: values.status === "suspended" ? values.reason : null,
     suspendedUntil,
@@ -245,7 +254,7 @@ export async function adminUpdateUser(
     createdAt: serverTimestamp(),
   });
   await batch.commit();
-  return { ...target, displayName: values.displayName, status: values.status, suspendedUntil: suspendedUntil?.toISOString(), suspensionReason: values.status === "suspended" ? values.reason : undefined };
+  return { ...target, displayName: values.displayName, role: values.role, status: values.status, suspendedUntil: suspendedUntil?.toISOString(), suspensionReason: values.status === "suspended" ? values.reason : undefined };
 }
 
 // Corrige el contenido o cambia la visibilidad de una oportunidad sin destruir información.

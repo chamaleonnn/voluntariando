@@ -34,6 +34,8 @@ Comprueba lint, tipos, compilación de producción y sintaxis de la función.
 
 ### Administración
 
+- El correo autorizado del proyecto puede ingresar como primer administrador con Google.
+- Un administrador puede promover otra cuenta al rol administrador.
 - Ve cuentas, correos, roles y estados desde Firebase.
 - Puede corregir el nombre visible de una cuenta.
 - Puede suspenderla por una cantidad definida de días y registrar el motivo.
