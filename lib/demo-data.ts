@@ -319,7 +319,15 @@ export const DEMO_VOLUNTEERS: VolunteerProfile[] = [
     verifiedHours: 36,
     interests: ["Ambiente", "Arte", "Comunidad"],
     declaredSkills: ["Trabajo en equipo", "Arte y creatividad"],
-    verifiedSkills: { "Trabajo en equipo": 4, "Arte y creatividad": 3 },
+    verifiedSkills: {
+      "Trabajo en equipo": 4,
+      "Arte y creatividad": 3,
+      "Naturaleza y ambiente": 2,
+      "Organización y logística": 2,
+      "Educación y acompañamiento": 1,
+      "Deporte, juego y recreación": 1,
+    },
+    featuredMedals: ["Arte y creatividad", "Naturaleza y ambiente", "Organización y logística", "Educación y acompañamiento"],
     availability: ["Sábado por la mañana"],
     experiences: [
       {

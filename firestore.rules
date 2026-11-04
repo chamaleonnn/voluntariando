@@ -43,7 +43,7 @@ service cloud.firestore {
       allow read: if owns(userId) || userRole() == "organization" || isAdmin();
       allow update: if (
         owns(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "name", "initials", "location", "bio", "interests", "declaredSkills", "availability", "updatedAt"
+          "name", "initials", "location", "bio", "interests", "declaredSkills", "availability", "featuredMedals", "updatedAt"
         ])
       ) || (
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([

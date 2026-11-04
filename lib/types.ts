@@ -96,6 +96,7 @@ export type VolunteerProfile = {
   interests: string[];
   declaredSkills?: string[];
   verifiedSkills?: Record<string, number>;
+  featuredMedals?: string[];
   availability?: string[];
   experiences?: Array<{
     opportunityId: string;

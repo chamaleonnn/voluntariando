@@ -5,7 +5,7 @@ import Image from "next/image";
 import {
   ArrowRight, Ban, BookOpen, Bot, Building2, CalendarDays, Check, ChevronRight, CirclePlay, Clock3,
   Globe2, Hammer, HeartHandshake, Laptop, Leaf, LogOut, Map, MapPin, Moon, PackageCheck, Palette,
-  Pencil, Plus, Search, Settings2, Shield, ShieldCheck, Sparkles, Sun, Trophy, UserCog, UserRound,
+  Pencil, Plus, Search, Settings2, Shield, ShieldCheck, Sparkles, Star, Sun, Trophy, UserCog, UserRound,
   Users, Utensils,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -103,6 +103,7 @@ function emptyVolunteerProfile(user: SessionUser): VolunteerProfile {
     interests: [],
     declaredSkills: [],
     verifiedSkills: {},
+    featuredMedals: [],
     availability: [],
     experiences: [],
     visibleToOrganizations: true,
@@ -388,14 +389,16 @@ function OpportunityCard({ item, personalized, onOpen }: { item: Opportunity; pe
 
 function VolunteerPanel({ user, profile, applications, opportunities, onProfile, onExplore }: { user: SessionUser; profile: VolunteerProfile; applications: Application[]; opportunities: Opportunity[]; onProfile: (profile: VolunteerProfile) => void; onExplore: () => void }) {
   const [editOpen, setEditOpen] = useState(false);
+  const [featuredOpen, setFeaturedOpen] = useState(false);
+  const featured = MEDALS.filter((medal) => profile.featuredMedals?.includes(medal.name));
   return <Dashboard title={`Hola, ${profile.name}`} description="Tu perfil y tu trayectoria determinan las recomendaciones." icon={<UserRound />} action={<Button onClick={() => setEditOpen(true)}><Pencil /> Editar perfil</Button>}>
     <div className="stats-grid"><Stat label="Experiencias" value={profile.completedExperiences} detail="completadas" /><Stat label="Intereses" value={profile.interests.length} detail="registrados" /><Stat label="Habilidades" value={(profile.declaredSkills ?? []).length} detail="declaradas" /><Stat label="Verificadas" value={Object.keys(profile.verifiedSkills ?? {}).length} detail="por organizaciones" /></div>
     <div className="dashboard-grid"><section className="panel-card wide-panel"><div className="panel-heading"><div><span>Opciones para vos</span><h2>Mayor compatibilidad</h2></div><Button variant="outline" onClick={onExplore}>Ver todas</Button></div><div className="mini-opportunity-grid">{opportunities.slice(0, 3).map((item) => <div key={item.id}><b>{item.compatibility ?? 0}%</b>{item.simulated && <SimulatedSeal />}<h3>{item.title}</h3><p>{item.recommendedBecause}</p></div>)}</div></section>
       <section className="panel-card"><div className="panel-heading"><div><span>Perfil</span><h2>Datos para el análisis</h2></div></div><Info label="Ubicación" value={profile.location} /><Info label="Intereses" value={profile.interests.join(", ") || "Sin completar"} /><Info label="Habilidades" value={(profile.declaredSkills ?? []).join(", ") || "Sin completar"} /><Info label="Disponibilidad" value={(profile.availability ?? []).join(", ") || "Sin completar"} /></section>
       <section className="panel-card"><div className="panel-heading"><div><span>Solicitudes</span><h2>Estado de tus postulaciones</h2></div></div><div className="timeline-list">{applications.filter((item) => item.userId === user.uid || user.isDemo).map((item) => <div key={item.id}><span className="timeline-icon"><Check /></span><div><b>{item.opportunityTitle}</b><p>{item.completedAt ? "Experiencia completada" : item.status === "accepted" ? "Participación confirmada" : item.status === "rejected" ? "Solicitud rechazada" : "Pendiente de respuesta"}</p></div><Badge variant="secondary">{item.completedAt ? "Completada" : item.status}</Badge></div>)}</div></section>
-      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Medallas</span><h2>Habilidades verificadas</h2></div></div><p className="panel-note">El nivel aumenta cada vez que una organización reconoce esa habilidad en una experiencia completada.</p><div className="medal-catalog">{MEDALS.map((medal) => <SkillMedal key={medal.name} medal={medal} level={profile.verifiedSkills?.[medal.name] ?? 0} />)}</div></section>
+      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Medallas</span><h2>Habilidades verificadas</h2></div><Button variant="outline" onClick={() => setFeaturedOpen(true)}><Star /> Elegir destacadas</Button></div><p className="panel-note">El nivel aumenta cada vez que una organización reconoce esa habilidad en una experiencia completada.</p>{featured.length > 0 ? <><h3 className="featured-title">Destacadas en tu perfil</h3><div className="featured-medals">{featured.map((medal) => <SkillMedal key={medal.name} medal={medal} level={profile.verifiedSkills?.[medal.name] ?? 0} />)}</div></> : <p className="featured-empty">Todavía no elegiste medallas destacadas. Podés mostrar hasta cuatro.</p>}<div className="medal-catalog">{MEDALS.map((medal) => <SkillMedal key={medal.name} medal={medal} level={profile.verifiedSkills?.[medal.name] ?? 0} />)}</div></section>
       <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Trayectoria</span><h2>Experiencias verificadas</h2></div></div><div className="timeline-list">{(profile.experiences ?? []).length ? profile.experiences!.map((item) => <div key={`${item.opportunityId}-${item.completedAt}`}><span className="timeline-icon"><Check /></span><div><b>{item.opportunityTitle}</b><p>{item.organization} · {item.tasks.join(", ")}</p><small>Habilidades observadas: {item.skills.join(", ")}</small></div></div>) : <p className="panel-note">Las experiencias completadas aparecerán acá.</p>}</div></section>
-    </div><VolunteerProfileDialog user={user} profile={profile} open={editOpen} onOpenChange={setEditOpen} onSaved={onProfile} />
+    </div><VolunteerProfileDialog user={user} profile={profile} open={editOpen} onOpenChange={setEditOpen} onSaved={onProfile} /><FeaturedMedalsDialog user={user} profile={profile} open={featuredOpen} onOpenChange={setFeaturedOpen} onSaved={onProfile} />
   </Dashboard>;
 }
 
@@ -577,6 +580,28 @@ function AuthDialog({ open, onOpenChange, onUser }: { open: boolean; onOpenChang
 function VolunteerProfileDialog({ user, profile, open, onOpenChange, onSaved, mandatory = false }: { user: SessionUser; profile: VolunteerProfile; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (profile: VolunteerProfile) => void; mandatory?: boolean }) {
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); const next = { ...profile, name: String(form.get("name")), location: String(form.get("location")), bio: String(form.get("bio")), interests: splitList(form.get("interests")), declaredSkills: splitList(form.get("skills")), availability: splitList(form.get("availability")) }; if (!next.name || !next.location || !next.interests.length || !next.declaredSkills.length || !next.availability.length) return toast.error("Completá nombre, ubicación, intereses, habilidades y disponibilidad."); try { if (!user.isDemo) await saveVolunteerProfile(next); onSaved(next); onOpenChange(false); toast.success("Perfil actualizado"); } catch (error) { toast.error("No pudimos guardar", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); } }
   return <Dialog open={open} onOpenChange={(nextOpen) => { if (!mandatory || nextOpen) onOpenChange(nextOpen); }}><DialogContent className="create-dialog" showCloseButton={!mandatory} onEscapeKeyDown={mandatory ? (event) => event.preventDefault() : undefined} onPointerDownOutside={mandatory ? (event) => event.preventDefault() : undefined}><DialogHeader><DialogTitle>{mandatory ? "Completá tu perfil para continuar" : "Configurar perfil"}</DialogTitle><DialogDescription>{mandatory ? "Necesitamos estos datos para recomendarte oportunidades acordes a vos." : "Estos datos se utilizan para calcular la compatibilidad."}</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label>Nombre<Input name="name" defaultValue={profile.name} required /></label><label>Ubicación<Input name="location" defaultValue={profile.location} required /></label><label className="full">Sobre mí<Textarea name="bio" defaultValue={profile.bio} /></label><label className="full">Intereses separados por coma<Input name="interests" defaultValue={profile.interests.join(", ")} placeholder="Ambiente, educación, comunidad" required /></label><label className="full">Habilidades separadas por coma<Input name="skills" defaultValue={(profile.declaredSkills ?? []).join(", ")} placeholder="Trabajo en equipo, creatividad" required /></label><label className="full">Disponibilidad separada por coma<Input name="availability" defaultValue={(profile.availability ?? []).join(", ")} placeholder="Sábado por la mañana" required /></label><DialogFooter className="full">{!mandatory && <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>}<Button type="submit">{mandatory ? "Guardar y entrar" : "Guardar perfil"}</Button></DialogFooter></form></DialogContent></Dialog>;
+}
+
+function FeaturedMedalsDialog({ user, profile, open, onOpenChange, onSaved }: { user: SessionUser; profile: VolunteerProfile; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (profile: VolunteerProfile) => void }) {
+  const [selected, setSelected] = useState<string[]>(profile.featuredMedals ?? []);
+  const earned = MEDALS.filter((medal) => (profile.verifiedSkills?.[medal.name] ?? 0) > 0);
+  function toggle(name: string) {
+    setSelected((current) => {
+      if (current.includes(name)) return current.filter((item) => item !== name);
+      if (current.length === 4) { toast.warning("Podés destacar un máximo de cuatro medallas."); return current; }
+      return [...current, name];
+    });
+  }
+  async function save() {
+    const next = { ...profile, featuredMedals: selected };
+    try {
+      if (!user.isDemo) await saveVolunteerProfile(next);
+      onSaved(next);
+      onOpenChange(false);
+      toast.success("Medallas destacadas actualizadas");
+    } catch (error) { toast.error("No pudimos guardar las medallas", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); }
+  }
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="medal-dialog"><DialogHeader><DialogTitle>Elegí tus medallas destacadas</DialogTitle><DialogDescription>Podés mostrar hasta cuatro medallas que ya hayas obtenido.</DialogDescription></DialogHeader><span className="medal-counter">{selected.length} de 4 seleccionadas</span>{earned.length ? <div className="featured-picker">{earned.map((medal) => <button type="button" key={medal.name} className={selected.includes(medal.name) ? "selected" : ""} onClick={() => toggle(medal.name)} disabled={!selected.includes(medal.name) && selected.length === 4}><SkillMedal medal={medal} level={profile.verifiedSkills?.[medal.name] ?? 0} /></button>)}</div> : <p className="panel-note">Cuando una organización te otorgue una medalla, podrás destacarla desde acá.</p>}<DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button onClick={() => void save()} disabled={!earned.length}>Guardar destacadas</Button></DialogFooter></DialogContent></Dialog>;
 }
 
 function OrganizationProfileDialog({ user, organization, open, onOpenChange, onSaved, mandatory = false }: { user: SessionUser; organization: Organization; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (organization: Organization) => void; mandatory?: boolean }) {

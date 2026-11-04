@@ -281,6 +281,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .visibility-box label > span { display: grid; gap: 2px; font-size: .73rem; font-weight: 750; }
 .visibility-box small { color: #8a9691; font-size: .64rem; font-weight: 500; }
 .featured-medals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.featured-title { margin: 20px 0 10px; color: #486057; font-size: .76rem; }
+.featured-empty { margin: 18px 0; padding: 12px; border: 1px dashed #cfdad2; border-radius: 12px; color: #71807a; font-size: .72rem; text-align: center; }
 .panel-note { margin: 15px 0 0; padding: 11px; border-radius: 10px; background: #f7f3e8; color: #786744; font-size: .67rem; line-height: 1.5; }
 .timeline-list { display: grid; gap: 9px; }
 .timeline-list > div { display: flex; align-items: center; gap: 12px; padding: 13px; border: 1px solid #e7ebe7; border-radius: 13px; }
@@ -399,6 +401,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .medal-dialog h3 { margin: 11px 0 4px; font-size: .84rem; }
 .medal-counter { width: max-content; padding: 6px 10px; border-radius: 999px; background: #edf5ef; color: #39715f; font-size: .68rem; font-weight: 800; }
 .medal-catalog { display: grid; grid-template-columns: repeat(8, 1fr); gap: 7px; }
+.featured-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.featured-picker > button { padding: 9px; border: 2px solid transparent; border-radius: 16px; background: transparent; cursor: pointer; }
+.featured-picker > button:hover, .featured-picker > button.selected { border-color: #62a38e; background: #edf6ef; }
+.featured-picker > button:disabled { cursor: not-allowed; opacity: .45; }
 .create-dialog { max-width: 700px !important; max-height: 92vh; overflow-y: auto; }
 .create-form { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
 .create-form label { display: grid; gap: 6px; color: #53675f; font-size: .72rem; font-weight: 750; }
@@ -528,6 +534,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .auth-dialog .demo-role-grid { gap: 7px; }
   .auth-dialog .demo-role-grid button { min-height: 54px; padding: 9px 11px; }
   .medal-catalog { grid-template-columns: repeat(2, 1fr); }
+  .featured-picker { grid-template-columns: repeat(2, 1fr); }
   .create-form { grid-template-columns: 1fr; }
   .create-form .full { grid-column: 1; }
   .medal-checks > div { grid-template-columns: repeat(2, 1fr); }
@@ -671,6 +678,8 @@ body { background: var(--app-surface); transition: background-color .45s ease, c
 :root[data-theme="dark"] .feed-opportunity-card footer { border-color: rgba(220,240,232,.12); }
 :root[data-theme="dark"] .recommendation-reason { color: #ead2a9; }
 :root[data-theme="dark"] .demo-role-grid button, :root[data-theme="dark"] .compatibility-detail > div span { border-color: var(--glass-border); background: rgba(255,255,255,.06); color: #e8f3ef; }
+:root[data-theme="dark"] .featured-picker > button:hover, :root[data-theme="dark"] .featured-picker > button.selected { border-color: #72b59f; background: rgba(114,181,159,.12); }
+:root[data-theme="dark"] .featured-title { color: #c8ddd5; }
 :root[data-theme="dark"] .consent-box { border-color: var(--glass-border); background: rgba(255,255,255,.06); color: #b9c9c3; }
 :root[data-theme="dark"] .consent-box b { color: #edf5f1; }
 :root[data-theme="dark"] .demo-hint { background: rgba(230,182,118,.12); color: #dec79f; }
