@@ -72,6 +72,21 @@ export type Application = {
   completedAt?: string;
 };
 
+export type Review = {
+  id: string;
+  applicationId: string;
+  opportunityId: string;
+  opportunityTitle: string;
+  organizationId: string;
+  organizationName: string;
+  userId: string;
+  authorName: string;
+  rating: number;
+  comment: string;
+  status: "published" | "reported" | "hidden";
+  createdAt: string;
+};
+
 export type Organization = {
   id: string;
   ownerId: string;

@@ -25,7 +25,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "@/lib/firebase";
-import type { Application, Opportunity, OpportunityStatus, Organization, PlatformUser, SessionUser, VolunteerProfile } from "@/lib/types";
+import type { Application, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, SessionUser, VolunteerProfile } from "@/lib/types";
 
 function requireDb() {
   if (!db) throw new Error("Firebase todavía no está configurado.");
@@ -240,6 +240,22 @@ export function observeOrganizations(callback: (items: Organization[]) => void, 
   if (!db) return () => undefined;
   const source = query(collection(db, "organizations"), where("status", "==", "verified"));
   return onSnapshot(source, (snapshot) => callback(snapshot.docs.map((item) => mapDoc<Organization>(item))), onError);
+}
+
+export function observeReviews(callback: (items: Review[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  const source = query(collection(db, "reviews"), where("status", "==", "published"));
+  return onSnapshot(source, (snapshot) => {
+    const items = snapshot.docs.map((item) => mapDoc<Review>(item));
+    callback(items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+  }, onError);
+}
+
+export async function createReview(review: Omit<Review, "id" | "createdAt" | "status">) {
+  const firestore = requireDb();
+  const reviewRef = doc(firestore, "reviews", review.applicationId);
+  await setDoc(reviewRef, { ...review, status: "published", createdAt: serverTimestamp() });
+  return { ...review, id: reviewRef.id, status: "published" as const, createdAt: new Date().toISOString() };
 }
 
 // El panel administrativo necesita el listado completo de cuentas, incluidos sus correos y estados.

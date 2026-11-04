@@ -1,4 +1,4 @@
-import type { Application, Opportunity, VolunteerProfile } from "@/lib/types";
+import type { Application, Opportunity, Review, VolunteerProfile } from "@/lib/types";
 
 export const DEMO_OPPORTUNITIES: Opportunity[] = [
   {
@@ -305,6 +305,28 @@ export const DEMO_APPLICATIONS: Application[] = [
     message: "Me interesa aprender y colaborar durante toda la jornada.",
     status: "accepted",
     createdAt: "2026-09-18T14:00:00.000Z",
+  },
+  {
+    id: "demo-completed-review", opportunityId: "pintura-centro-comunitario", opportunityTitle: "Pintemos juntos el espacio comunitario",
+    organizationId: "fundemos", userId: "demo-volunteer", userName: "Sofía Martínez", userEmail: "sofia@demo.local",
+    message: "Participé de la jornada completa.", status: "accepted", createdAt: "2026-09-10T14:00:00.000Z", completedAt: "2026-10-11T16:00:00.000Z",
+  },
+];
+
+export const DEMO_REVIEWS: Review[] = [
+  {
+    id: "demo-review-1", applicationId: "demo-completed-1", opportunityId: "huerta-comunitaria",
+    opportunityTitle: "Jornada de huerta y compost", organizationId: "fundemos", organizationName: "Fundemos",
+    userId: "demo-volunteer", authorName: "Sofía Martínez", rating: 5,
+    comment: "Participé en la huerta y me gustó que explicaran cada tarea. Fue una experiencia muy cálida.",
+    status: "published", createdAt: "2026-10-20T14:00:00.000Z",
+  },
+  {
+    id: "demo-review-2", applicationId: "demo-completed-2", opportunityId: "apoyo-escolar",
+    opportunityTitle: "Apoyo escolar en lectura y matemática", organizationId: "la-ronda", organizationName: "Espacio Educativo La Ronda",
+    userId: "demo-anonymous", authorName: "Voluntario anónimo", rating: 4,
+    comment: "La organización fue clara y el acompañamiento a los chicos estuvo muy bien coordinado.",
+    status: "published", createdAt: "2026-10-18T18:00:00.000Z",
   },
 ];
 

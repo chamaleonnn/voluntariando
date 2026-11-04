@@ -104,6 +104,25 @@ service cloud.firestore {
       allow read: if signedIn() && (resource.data.volunteerId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
     }
 
+    match /reviews/{reviewId} {
+      allow read: if resource.data.status == "published" || isAdmin();
+      allow create: if signedIn()
+        && reviewId == request.resource.data.applicationId
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() >= 10
+        && request.resource.data.comment.size() <= 600
+        && (request.resource.data.authorName == "Voluntario anónimo" || request.resource.data.authorName == request.auth.token.name)
+        && request.resource.data.status == "published"
+        && get(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.userId == request.auth.uid
+        && request.resource.data.opportunityId == get(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.opportunityId
+        && request.resource.data.organizationId == get(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.organizationId
+        && get(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.completedAt != null;
+      allow update, delete: if false;
+    }
+
     match /adminActions/{actionId} {
       allow create, read: if isAdmin();
       allow update, delete: if false;

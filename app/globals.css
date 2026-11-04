@@ -165,6 +165,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .landing-cta h2 { color: white; }
 .landing-cta p { color: #cbd9d3; }
 .landing-cta button { background: #f3b96b; color: #443719; }
+.reviews-section { padding: 72px clamp(20px, 6vw, 88px); }
+.review-grid { max-width: 1220px; margin: 28px auto 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.review-grid article { padding: 22px; border: 1px solid #dfe7e1; border-radius: 20px; background: var(--glass-surface-strong); box-shadow: 0 10px 30px rgba(45,73,63,.06); }
+.review-stars { color: #d89027; font-size: 1rem; letter-spacing: .08em; }
+.review-grid article > p { min-height: 64px; color: #53675f; font-size: .8rem; line-height: 1.6; }
+.review-grid footer { display: grid; gap: 3px; padding-top: 12px; border-top: 1px solid #e5ebe6; }
+.review-grid footer b { font-size: .76rem; }
+.review-grid footer span { color: #7c8b85; font-size: .64rem; }
 
 /* La vista entra suavemente al navegar desde la barra superior. */
 .screen-stage { animation: screen-enter .42s cubic-bezier(.2,.75,.25,1) both; }
@@ -518,6 +526,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .dashboard-grid, .admin-grid { grid-template-columns: 1fr; }
   .panel-card.wide-panel { grid-column: 1; }
   .featured-medals, .mini-opportunity-grid, .volunteer-grid-cards { grid-template-columns: 1fr 1fr; }
+  .review-grid { grid-template-columns: 1fr; }
   .dialog-columns { grid-template-columns: 1fr; }
   .auth-dialog {
     width: calc(100vw - 20px) !important;
@@ -680,6 +689,8 @@ body { background: var(--app-surface); transition: background-color .45s ease, c
 :root[data-theme="dark"] .demo-role-grid button, :root[data-theme="dark"] .compatibility-detail > div span { border-color: var(--glass-border); background: rgba(255,255,255,.06); color: #e8f3ef; }
 :root[data-theme="dark"] .featured-picker > button:hover, :root[data-theme="dark"] .featured-picker > button.selected { border-color: #72b59f; background: rgba(114,181,159,.12); }
 :root[data-theme="dark"] .featured-title { color: #c8ddd5; }
+:root[data-theme="dark"] .review-grid article > p { color: #c2d2cc; }
+:root[data-theme="dark"] .review-grid footer { border-color: rgba(220,240,232,.12); }
 :root[data-theme="dark"] .consent-box { border-color: var(--glass-border); background: rgba(255,255,255,.06); color: #b9c9c3; }
 :root[data-theme="dark"] .consent-box b { color: #edf5f1; }
 :root[data-theme="dark"] .demo-hint { background: rgba(230,182,118,.12); color: #dec79f; }
