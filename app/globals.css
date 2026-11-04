@@ -379,6 +379,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
   padding: 30px !important;
 }
 .auth-mark { width: 48px; height: 48px; display: grid; place-items: center; margin-bottom: 6px; border-radius: 16px 16px 16px 5px; background: #dff1e3; color: #21705b; }
+.consent-box { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid #dce6df; border-radius: 13px; background: #f4f8f5; color: #52675f; cursor: pointer; }
+.consent-box input { width: 17px; height: 17px; flex: 0 0 auto; margin-top: 2px; accent-color: #2f7b65; }
+.consent-box span { display: grid; gap: 3px; font-size: .7rem; line-height: 1.45; }
+.consent-box b { color: #304d43; font-size: .73rem; }
 .google-button { height: 48px; gap: 10px; }
 .google-button > span { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; background: conic-gradient(#4285f4 0 25%,#34a853 0 50%,#fbbc05 0 75%,#ea4335 0); color: white; font-weight: 900; }
 .demo-hint { margin: 3px 0 -2px; padding: 10px; border-radius: 10px; background: #f5f3eb; color: #746b52; font-size: .68rem; line-height: 1.45; }
@@ -665,6 +669,8 @@ body { background: var(--app-surface); transition: background-color .45s ease, c
 :root[data-theme="dark"] .feed-opportunity-card footer { border-color: rgba(220,240,232,.12); }
 :root[data-theme="dark"] .recommendation-reason { color: #ead2a9; }
 :root[data-theme="dark"] .demo-role-grid button, :root[data-theme="dark"] .compatibility-detail > div span { border-color: var(--glass-border); background: rgba(255,255,255,.06); color: #e8f3ef; }
+:root[data-theme="dark"] .consent-box { border-color: var(--glass-border); background: rgba(255,255,255,.06); color: #b9c9c3; }
+:root[data-theme="dark"] .consent-box b { color: #edf5f1; }
 :root[data-theme="dark"] .demo-hint { background: rgba(230,182,118,.12); color: #dec79f; }
 :root[data-theme="dark"] .simulated-seal { border-color: rgba(206,180,235,.25) !important; background: rgba(120,90,150,.24) !important; color: #e0c8f4 !important; }
 :root[data-theme="dark"] .assistant-panel { box-shadow: 0 24px 80px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08); }

@@ -74,6 +74,9 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
       email,
       role,
       status: "active",
+      // Constancia mínima del consentimiento mostrado antes de abrir Google.
+      privacyConsentVersion: "tesis-2026-11-04",
+      privacyConsentAcceptedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
       lastLoginAt: serverTimestamp(),
     });
