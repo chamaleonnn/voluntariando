@@ -347,6 +347,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .skill-medal.compact .skill-medal-icons svg + svg { width: 15px; }
 .skill-medal.compact .skill-medal-name { max-width: 78px; min-height: 24px; font-size: .54rem; }
 .skill-medal.compact small { display: none; }
+.skill-medal.locked { filter: grayscale(.75); opacity: .45; }
+.skill-medal.earned { filter: drop-shadow(0 8px 12px color-mix(in srgb, var(--medal-ink), transparent 78%)); }
 .tiny-medals .skill-medal-name { display: none; }
 .tiny-medals .skill-medal.compact .skill-medal-shape { width: 42px; height: 42px; }
 .tiny-medals .skill-medal-shape > strong { min-width: 19px; height: 19px; top: -4px; right: -4px; font-size: .55rem; }

@@ -3,9 +3,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
-  ArrowRight, Ban, Bot, Building2, CalendarDays, Check, ChevronRight, CirclePlay, Clock3,
-  Globe2, HeartHandshake, LogOut, Map, MapPin, Moon, Pencil, Plus, Search, Settings2,
-  Shield, ShieldCheck, Sparkles, Sun, UserCog, UserRound, Users,
+  ArrowRight, Ban, BookOpen, Bot, Building2, CalendarDays, Check, ChevronRight, CirclePlay, Clock3,
+  Globe2, Hammer, HeartHandshake, Laptop, Leaf, LogOut, Map, MapPin, Moon, PackageCheck, Palette,
+  Pencil, Plus, Search, Settings2, Shield, ShieldCheck, Sparkles, Sun, Trophy, UserCog, UserRound,
+  Users, Utensils,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,8 +43,24 @@ const DEMO_ORGANIZATION: Organization = {
   description: "Organización orientada a proyectos comunitarios, ambientales y educativos.", status: "verified",
 };
 
+// Ocho medallas finales: cada una agrupa tareas relacionadas y usa un color exclusivo.
+const MEDALS = [
+  { name: "Arte y creatividad", color: "#F3C6B8", ink: "#813F32", icon: Palette },
+  { name: "Educación y acompañamiento", color: "#C9D7F8", ink: "#34517F", icon: BookOpen },
+  { name: "Naturaleza y ambiente", color: "#BFE2C5", ink: "#27623B", icon: Leaf },
+  { name: "Cocina y alimentación", color: "#F4D7A1", ink: "#75531C", icon: Utensils },
+  { name: "Construcción y reparación", color: "#D2C4B6", ink: "#614A37", icon: Hammer },
+  { name: "Organización y logística", color: "#D7C5EA", ink: "#5A3D78", icon: PackageCheck },
+  { name: "Tecnología y comunicación", color: "#B9DFE8", ink: "#245C69", icon: Laptop },
+  { name: "Deporte, juego y recreación", color: "#F2B8CA", ink: "#7A3550", icon: Trophy },
+] as const;
+
 function splitList(value: FormDataEntryValue | null) {
   return String(value ?? "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function raiseMedalLevels(current: Record<string, number>, medals: string[]) {
+  return medals.reduce((levels, medal) => ({ ...levels, [medal]: (levels[medal] ?? 0) + 1 }), { ...current });
 }
 
 function screenForRole(role: SessionUser["role"]): Screen {
@@ -206,7 +223,11 @@ export default function Home() {
     setProfileLoadedFor(null);
     setOrganizationLoadedFor(null);
     setOrganizationProfile(null);
-    if (nextUser.role === "volunteer") setProfile(nextUser.isDemo ? DEMO_VOLUNTEERS[0] : emptyVolunteerProfile(nextUser));
+    if (nextUser.role === "volunteer") {
+      // Entre roles demo conservamos las acciones realizadas durante la demostración.
+      if (!nextUser.isDemo) setProfile(emptyVolunteerProfile(nextUser));
+      else if (!user?.isDemo) setProfile(DEMO_VOLUNTEERS[0]);
+    }
     setUser(nextUser);
     setAuthOpen(false);
     setRoleOpen(false);
@@ -372,6 +393,7 @@ function VolunteerPanel({ user, profile, applications, opportunities, onProfile,
     <div className="dashboard-grid"><section className="panel-card wide-panel"><div className="panel-heading"><div><span>Opciones para vos</span><h2>Mayor compatibilidad</h2></div><Button variant="outline" onClick={onExplore}>Ver todas</Button></div><div className="mini-opportunity-grid">{opportunities.slice(0, 3).map((item) => <div key={item.id}><b>{item.compatibility ?? 0}%</b>{item.simulated && <SimulatedSeal />}<h3>{item.title}</h3><p>{item.recommendedBecause}</p></div>)}</div></section>
       <section className="panel-card"><div className="panel-heading"><div><span>Perfil</span><h2>Datos para el análisis</h2></div></div><Info label="Ubicación" value={profile.location} /><Info label="Intereses" value={profile.interests.join(", ") || "Sin completar"} /><Info label="Habilidades" value={(profile.declaredSkills ?? []).join(", ") || "Sin completar"} /><Info label="Disponibilidad" value={(profile.availability ?? []).join(", ") || "Sin completar"} /></section>
       <section className="panel-card"><div className="panel-heading"><div><span>Solicitudes</span><h2>Estado de tus postulaciones</h2></div></div><div className="timeline-list">{applications.filter((item) => item.userId === user.uid || user.isDemo).map((item) => <div key={item.id}><span className="timeline-icon"><Check /></span><div><b>{item.opportunityTitle}</b><p>{item.completedAt ? "Experiencia completada" : item.status === "accepted" ? "Participación confirmada" : item.status === "rejected" ? "Solicitud rechazada" : "Pendiente de respuesta"}</p></div><Badge variant="secondary">{item.completedAt ? "Completada" : item.status}</Badge></div>)}</div></section>
+      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Medallas</span><h2>Habilidades verificadas</h2></div></div><p className="panel-note">El nivel aumenta cada vez que una organización reconoce esa habilidad en una experiencia completada.</p><div className="medal-catalog">{MEDALS.map((medal) => <SkillMedal key={medal.name} medal={medal} level={profile.verifiedSkills?.[medal.name] ?? 0} />)}</div></section>
       <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Trayectoria</span><h2>Experiencias verificadas</h2></div></div><div className="timeline-list">{(profile.experiences ?? []).length ? profile.experiences!.map((item) => <div key={`${item.opportunityId}-${item.completedAt}`}><span className="timeline-icon"><Check /></span><div><b>{item.opportunityTitle}</b><p>{item.organization} · {item.tasks.join(", ")}</p><small>Habilidades observadas: {item.skills.join(", ")}</small></div></div>) : <p className="panel-note">Las experiencias completadas aparecerán acá.</p>}</div></section>
     </div><VolunteerProfileDialog user={user} profile={profile} open={editOpen} onOpenChange={setEditOpen} onSaved={onProfile} />
   </Dashboard>;
@@ -399,7 +421,7 @@ function OrganizationPanel({ user, organization, opportunities, applications, on
     </div>
     <OrganizationProfileDialog user={user} organization={organization} open={profileOpen} onOpenChange={setProfileOpen} onSaved={onOrganization} />
     <OpportunityEditor user={user} organization={organization} opportunity={editing} open={opportunityOpen} onOpenChange={setOpportunityOpen} onSaved={(next) => onOpportunities(editing ? opportunities.map((item) => item.id === next.id ? next : item) : [next, ...opportunities])} />
-    <ExperienceDialog user={user} organization={organization} application={experience} open={Boolean(experience)} onOpenChange={(open) => !open && setExperience(null)} onCompleted={(next, skills, tasks) => { onApplications(applications.map((item) => item.id === next.id ? next : item)); onProfile({ ...DEMO_VOLUNTEERS[0], completedExperiences: DEMO_VOLUNTEERS[0].completedExperiences + 1, verifiedSkills: { ...(DEMO_VOLUNTEERS[0].verifiedSkills ?? {}), ...Object.fromEntries(skills.map((skill) => [skill, 1])) }, experiences: [...(DEMO_VOLUNTEERS[0].experiences ?? []), { opportunityId: next.opportunityId, opportunityTitle: next.opportunityTitle, organization: organization.name, tasks, skills, completedAt: new Date().toISOString() }] }); }} />
+    <ExperienceDialog user={user} organization={organization} application={experience} open={Boolean(experience)} onOpenChange={(open) => !open && setExperience(null)} onCompleted={(next, skills, tasks) => { onApplications(applications.map((item) => item.id === next.id ? next : item)); onProfile({ ...DEMO_VOLUNTEERS[0], completedExperiences: DEMO_VOLUNTEERS[0].completedExperiences + 1, verifiedSkills: raiseMedalLevels(DEMO_VOLUNTEERS[0].verifiedSkills ?? {}, skills), experiences: [...(DEMO_VOLUNTEERS[0].experiences ?? []), { opportunityId: next.opportunityId, opportunityTitle: next.opportunityTitle, organization: organization.name, tasks, skills, completedAt: new Date().toISOString() }] }); }} />
   </Dashboard>;
 }
 
@@ -532,6 +554,11 @@ function Dashboard({ title, description, icon, action, children }: { title: stri
 function Stat({ label, value, detail }: { label: string; value: number; detail: string }) { return <article className="stat-card"><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>; }
 function Info({ label, value }: { label: string; value: string }) { return <div className="profile-info-row"><small>{label}</small><b>{value}</b></div>; }
 
+function SkillMedal({ medal, level }: { medal: (typeof MEDALS)[number]; level: number }) {
+  const Icon = medal.icon;
+  return <article className={`skill-medal practical ${level ? "earned" : "locked"}`} style={{ "--medal-color": medal.color, "--medal-ink": medal.ink } as React.CSSProperties}><span className="skill-medal-shape"><span className="skill-medal-icons"><Icon /></span><strong>{level}</strong></span><span className="skill-medal-name">{medal.name}</span><small>{level ? `Nivel ${level}` : "Sin obtener"}</small></article>;
+}
+
 function OpportunityDialog({ opportunity, user, applications, open, onOpenChange, onApply }: { opportunity: Opportunity | null; user: SessionUser | null; applications: Application[]; open: boolean; onOpenChange: (open: boolean) => void; onApply: (item: Opportunity) => void }) {
   if (!opportunity) return null;
   const applied = Boolean(user && applications.some((item) => item.opportunityId === opportunity.id && item.userId === user.uid));
@@ -563,7 +590,16 @@ function OpportunityEditor({ user, organization, opportunity, open, onOpenChange
 }
 
 function ExperienceDialog({ user, organization, application, open, onOpenChange, onCompleted }: { user: SessionUser; organization: Organization; application: Application | null; open: boolean; onOpenChange: (open: boolean) => void; onCompleted: (application: Application, skills: string[], tasks: string[]) => void }) {
+  const [selectedMedals, setSelectedMedals] = useState<string[]>([]);
   if (!application) return null;
-  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); const tasks = splitList(form.get("tasks")); const skills = splitList(form.get("skills")); if (!tasks.length || !skills.length) return toast.error("Registrá tareas y habilidades observadas."); try { if (!user.isDemo) await recordCompletedExperience(application!, { tasks, skills, organizationName: organization.name }); const next = { ...application!, completedAt: new Date().toISOString() }; onCompleted(next, skills, tasks); onOpenChange(false); toast.success("Experiencia incorporada a la trayectoria"); } catch (error) { toast.error("No pudimos registrar la experiencia", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); } }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="create-dialog"><DialogHeader><DialogTitle>Registrar participación realizada</DialogTitle><DialogDescription>{application.userName} · {application.opportunityTitle}</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label className="full">Tareas realizadas separadas por coma<Input name="tasks" required /></label><label className="full">Habilidades observadas separadas por coma<Input name="skills" required /></label><DialogFooter className="full"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit">Completar participación</Button></DialogFooter></form></DialogContent></Dialog>;
+  function toggleMedal(name: string) {
+    setSelectedMedals((current) => {
+      if (current.includes(name)) return current.filter((item) => item !== name);
+      if (current.length === 3) { toast.warning("Podés otorgar un máximo de tres medallas por experiencia."); return current; }
+      return [...current, name];
+    });
+  }
+  function changeOpen(nextOpen: boolean) { if (!nextOpen) setSelectedMedals([]); onOpenChange(nextOpen); }
+  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); const tasks = splitList(form.get("tasks")); const skills = selectedMedals; if (!tasks.length) return toast.error("Detallá las tareas que realizó la persona voluntaria."); try { if (!user.isDemo) await recordCompletedExperience(application!, { tasks, skills, organizationName: organization.name }); const next = { ...application!, completedAt: new Date().toISOString() }; onCompleted(next, skills, tasks); changeOpen(false); if (!skills.length) toast.warning("Experiencia registrada sin medallas", { description: "No reconocer habilidades puede perjudicar las recomendaciones futuras del perfil." }); else toast.success("Experiencia incorporada a la trayectoria"); } catch (error) { toast.error("No pudimos registrar la experiencia", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); } }
+  return <Dialog open={open} onOpenChange={changeOpen}><DialogContent className="create-dialog"><DialogHeader><DialogTitle>Registrar participación realizada</DialogTitle><DialogDescription>{application.userName} · {application.opportunityTitle}</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label className="full">¿Qué tareas realizó? Separalas por coma<Input name="tasks" placeholder="Preparó materiales, coordinó el juego" required /></label><fieldset className="medal-checks full"><legend>Medallas observadas · máximo 3</legend><p>Podés continuar sin otorgarlas, pero eso puede perjudicar el perfil y sus futuras recomendaciones.</p><div>{MEDALS.map((medal) => <label key={medal.name}><input type="checkbox" checked={selectedMedals.includes(medal.name)} disabled={!selectedMedals.includes(medal.name) && selectedMedals.length === 3} onChange={() => toggleMedal(medal.name)} />{medal.name}</label>)}</div></fieldset><span className="medal-counter full">{selectedMedals.length} de 3 seleccionadas</span><DialogFooter className="full"><Button type="button" variant="outline" onClick={() => changeOpen(false)}>Cancelar</Button><Button type="submit">Completar participación</Button></DialogFooter></form></DialogContent></Dialog>;
 }
