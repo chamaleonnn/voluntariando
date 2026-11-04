@@ -3,6 +3,7 @@ import {
   getRedirectResult,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   type User,
 } from "firebase/auth";
@@ -50,11 +51,15 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
   const stored = snapshot.data();
   const email = user.email ?? "";
   const bootstrapAdmin = requestedRole === "admin" && email === "leybatao014@gmail.com";
+  const storedRole = stored?.role === "organization" || stored?.role === "volunteer" || stored?.role === "admin"
+    ? stored.role
+    : null;
+  if (requestedRole === "admin" && !bootstrapAdmin && storedRole !== "admin") {
+    throw new Error("Esta cuenta no tiene permisos de administración.");
+  }
   const role: SessionUser["role"] = bootstrapAdmin
     ? "admin"
-    : stored?.role === "organization" || stored?.role === "volunteer" || stored?.role === "admin"
-    ? stored.role
-    : requestedRole;
+    : storedRole ?? requestedRole;
   const batch = writeBatch(firestore);
 
   if (stored?.status === "suspended") {
@@ -125,31 +130,69 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
 
 export function observeAuth(callback: (user: SessionUser | null) => void) {
   if (!auth || !db) return () => undefined;
-  void getRedirectResult(auth).catch((error) => console.error("No se pudo completar el ingreso con Google", error));
-  return onAuthStateChanged(auth, async (user) => {
+  const firebaseAuth = auth;
+  void getRedirectResult(firebaseAuth).catch((error) => {
+    window.localStorage.setItem("voluntariando-auth-error", authErrorMessage(error));
+    window.localStorage.removeItem("voluntariando-requested-role");
+    console.error("No se pudo completar el ingreso con Google", error);
+  });
+  return onAuthStateChanged(firebaseAuth, async (user) => {
     if (!user) return callback(null);
     try {
-      const requested = window.localStorage.getItem("red-cercana-requested-role");
-      window.localStorage.removeItem("red-cercana-requested-role");
-      callback(await toSessionUser(user, requested === "organization" ? "organization" : "volunteer"));
+      const requested = window.localStorage.getItem("voluntariando-requested-role");
+      window.localStorage.removeItem("voluntariando-requested-role");
+      const role = requested === "organization" || requested === "admin" ? requested : "volunteer";
+      callback(await toSessionUser(user, role));
     } catch (error) {
       console.error("No se pudo cargar el perfil autenticado", error);
+      window.localStorage.setItem("voluntariando-auth-error", authErrorMessage(error));
+      await signOut(firebaseAuth);
       callback(null);
     }
   });
 }
 
+function needsRedirect() {
+  const agent = window.navigator.userAgent;
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(agent);
+  const embedded = /Instagram|FBAN|FBAV|Line|WhatsApp/i.test(agent);
+  return mobile || embedded;
+}
+
+export function authErrorMessage(error: unknown) {
+  const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+  if (code.includes("popup-blocked")) return "El navegador bloqueó la ventana de Google. Abrí el enlace en Chrome o Safari e intentá nuevamente.";
+  if (code.includes("popup-closed-by-user") || code.includes("cancelled-popup-request")) return "El acceso con Google se cerró antes de finalizar.";
+  if (code.includes("unauthorized-domain")) return "Este dominio todavía no está autorizado para iniciar sesión con Google.";
+  if (code.includes("network-request-failed")) return "No pudimos conectarnos con Google. Revisá tu conexión e intentá nuevamente.";
+  if (code.includes("web-storage-unsupported") || code.includes("operation-not-supported")) return "Este navegador no permite completar el acceso. Abrí el enlace en Chrome o Safari.";
+  if (error instanceof Error && error.message) return error.message;
+  return "No pudimos iniciar sesión. Intentá nuevamente desde Chrome o Safari.";
+}
+
 export async function firebaseSignInWithGoogle(role: SessionUser["role"] = "volunteer") {
   if (!auth) throw new Error("Firebase todavía no está configurado.");
-  window.localStorage.setItem("red-cercana-requested-role", role);
-  const result = await signInWithPopup(auth, new GoogleAuthProvider());
-  window.localStorage.removeItem("red-cercana-requested-role");
-  const session = await toSessionUser(result.user, role);
-  if (role === "admin" && session.role !== "admin") {
-    await signOut(auth);
-    throw new Error("Esta cuenta no tiene permisos de administración.");
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  window.localStorage.setItem("voluntariando-requested-role", role);
+
+  if (needsRedirect()) {
+    await signInWithRedirect(auth, provider);
   }
-  return session;
+
+  try {
+    const result = await signInWithPopup(auth, provider);
+    window.localStorage.removeItem("voluntariando-requested-role");
+    return await toSessionUser(result.user, role);
+  } catch (error) {
+    const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+    if (code.includes("popup-blocked") || code.includes("operation-not-supported-in-this-environment")) {
+      await signInWithRedirect(auth, provider);
+    }
+    window.localStorage.removeItem("voluntariando-requested-role");
+    if (auth.currentUser) await signOut(auth);
+    throw new Error(authErrorMessage(error));
+  }
 }
 
 export async function firebaseSignOut() {

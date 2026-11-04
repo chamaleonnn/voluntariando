@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/sonner";
 import { DEMO_APPLICATIONS, DEMO_OPPORTUNITIES, DEMO_VOLUNTEERS } from "@/lib/demo-data";
 import {
-  adminUpdateOpportunity, adminUpdateUser, createApplication, createOpportunity, firebaseSignInWithGoogle, firebaseSignOut,
+  adminUpdateOpportunity, adminUpdateUser, authErrorMessage, createApplication, createOpportunity, firebaseSignInWithGoogle, firebaseSignOut,
   observeAdminApplications, observeAdminOpportunities, observeAdminUsers, observeApplications, observeAuth, observeOpportunities, observeOrganizations,
   observeVolunteerProfile, recordCompletedExperience, saveOrganizationProfile,
   saveVolunteerProfile, updateApplicationStatus, updateOpportunity,
@@ -94,6 +94,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => observeAuth((nextUser) => { if (nextUser) setUser(nextUser); }), []);
+
+  useEffect(() => {
+    const message = window.localStorage.getItem("voluntariando-auth-error");
+    if (!message) return;
+    window.localStorage.removeItem("voluntariando-auth-error");
+    toast.error("No pudimos iniciar sesión", { description: message });
+  }, []);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -446,7 +453,7 @@ function OpportunityDialog({ opportunity, user, applications, open, onOpenChange
 
 function AuthDialog({ open, onOpenChange, onUser }: { open: boolean; onOpenChange: (open: boolean) => void; onUser: (user: SessionUser) => void }) {
   const [loading, setLoading] = useState(false);
-  async function login(role: SessionUser["role"]) { setLoading(true); try { const next = await firebaseSignInWithGoogle(role); onUser(next); } catch (error) { toast.error("No pudimos iniciar sesión", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); } finally { setLoading(false); } }
+  async function login(role: SessionUser["role"]) { setLoading(true); try { const next = await firebaseSignInWithGoogle(role); onUser(next); } catch (error) { toast.error("No pudimos iniciar sesión", { description: authErrorMessage(error) }); } finally { setLoading(false); } }
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="auth-dialog"><DialogHeader><span className="auth-mark"><HeartHandshake /></span><DialogTitle>Ingresá con Google</DialogTitle><DialogDescription>En el primer acceso elegí el perfil que vas a utilizar.</DialogDescription></DialogHeader><Button variant="outline" onClick={() => void login("volunteer")} disabled={loading}><UserRound /> Continuar como voluntario</Button><Button variant="outline" onClick={() => void login("organization")} disabled={loading}><Building2 /> Continuar como organización</Button><Button variant="outline" onClick={() => void login("admin")} disabled={loading}><Shield /> Acceso de administrador</Button><p className="demo-hint">Recorré el prototipo sin crear datos reales y cambiá de rol cuando quieras:</p><div className="demo-role-grid"><button onClick={() => onUser(DEMO_USERS.volunteer)}><UserRound /><span><b>Voluntario demo</b><small>Perfil y recomendaciones</small></span></button><button onClick={() => onUser(DEMO_USERS.organization)}><Building2 /><span><b>Organización demo</b><small>Oportunidades y solicitudes</small></span></button><button onClick={() => onUser(DEMO_USERS.admin)}><Shield /><span><b>Administrador demo</b><small>Supervisión y moderación</small></span></button></div></DialogContent></Dialog>;
 }
 
