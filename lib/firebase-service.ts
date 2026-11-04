@@ -224,6 +224,14 @@ export function observeVolunteerProfile(userId: string, callback: (profile: Volu
   });
 }
 
+// Observa el perfil propio de una organización, incluso mientras todavía está incompleto.
+export function observeOrganizationProfile(organizationId: string, callback: (organization: Organization | null) => void) {
+  if (!db) return () => undefined;
+  return onSnapshot(doc(db, "organizations", organizationId), (snapshot) => {
+    callback(snapshot.exists() ? ({ id: snapshot.id, ...snapshot.data() } as Organization) : null);
+  });
+}
+
 export function observeOrganizations(callback: (items: Organization[]) => void, onError: (error: Error) => void) {
   if (!db) return () => undefined;
   const source = query(collection(db, "organizations"), where("status", "==", "verified"));

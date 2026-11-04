@@ -21,7 +21,7 @@ import { DEMO_APPLICATIONS, DEMO_OPPORTUNITIES, DEMO_VOLUNTEERS } from "@/lib/de
 import {
   adminUpdateOpportunity, adminUpdateUser, authErrorMessage, createApplication, createOpportunity, firebaseSignInWithGoogle, firebaseSignOut,
   observeAdminApplications, observeAdminOpportunities, observeAdminUsers, observeApplications, observeAuth, observeOpportunities, observeOrganizations,
-  observeVolunteerProfile, recordCompletedExperience, saveOrganizationProfile,
+  observeOrganizationProfile, observeVolunteerProfile, recordCompletedExperience, saveOrganizationProfile,
   saveVolunteerProfile, updateApplicationStatus, updateOpportunity,
 } from "@/lib/firebase-service";
 import { isFirebaseConfigured } from "@/lib/firebase";
@@ -52,6 +52,27 @@ function screenForRole(role: SessionUser["role"]): Screen {
   return "volunteer";
 }
 
+// El acceso a la app se habilita solamente cuando existen los datos mínimos del perfil.
+function volunteerProfileIsComplete(profile: VolunteerProfile) {
+  return Boolean(
+    profile.name.trim()
+    && profile.location.trim()
+    && profile.interests.length
+    && (profile.declaredSkills ?? []).length
+    && (profile.availability ?? []).length,
+  );
+}
+
+function organizationProfileIsComplete(organization: Organization) {
+  return Boolean(
+    organization.name.trim()
+    && organization.province.trim()
+    && organization.location?.trim()
+    && organization.contact?.trim()
+    && organization.description.trim(),
+  );
+}
+
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("landing");
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -61,7 +82,10 @@ export default function Home() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>(DEMO_OPPORTUNITIES);
   const [applications, setApplications] = useState<Application[]>(DEMO_APPLICATIONS);
   const [profile, setProfile] = useState<VolunteerProfile>(DEMO_VOLUNTEERS[0]);
+  const [profileLoadedFor, setProfileLoadedFor] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([DEMO_ORGANIZATION]);
+  const [organizationProfile, setOrganizationProfile] = useState<Organization | null>(null);
+  const [organizationLoadedFor, setOrganizationLoadedFor] = useState<string | null>(null);
   useEffect(() => {
     const saved = window.localStorage.getItem("red-cercana-theme");
     const preferred = saved === "dark" || saved === "light"
@@ -93,7 +117,13 @@ export default function Home() {
     return () => { window.removeEventListener("pointermove", move); window.cancelAnimationFrame(frame); };
   }, []);
 
-  useEffect(() => observeAuth((nextUser) => { if (nextUser) setUser(nextUser); }), []);
+  useEffect(() => observeAuth((nextUser) => {
+    setProfileLoadedFor(null);
+    setOrganizationLoadedFor(null);
+    setOrganizationProfile(null);
+    setUser(nextUser);
+    if (nextUser) setScreen(screenForRole(nextUser.role));
+  }), []);
 
   useEffect(() => {
     const message = window.localStorage.getItem("voluntariando-auth-error");
@@ -121,7 +151,19 @@ export default function Home() {
     if (!user || user.isDemo) return;
     const fail = (error: Error) => console.error("Sincronización privada", error);
     const stops = [observeApplications(user, setApplications, fail)];
-    if (user.role === "volunteer") stops.push(observeVolunteerProfile(user.uid, (next) => { if (next) setProfile(next); }));
+    if (user.role === "volunteer") {
+      stops.push(observeVolunteerProfile(user.uid, (next) => {
+        if (next) setProfile(next);
+        setProfileLoadedFor(user.uid);
+      }));
+    }
+    if (user.role === "organization") {
+      stops.push(observeOrganizationProfile(user.uid, (next) => {
+        setOrganizationProfile(next);
+        setOrganizationLoadedFor(user.uid);
+        if (next) setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next]);
+      }));
+    }
     return () => stops.forEach((stop) => stop());
   }, [user]);
 
@@ -140,6 +182,10 @@ export default function Home() {
   }
 
   function loginAs(nextUser: SessionUser) {
+    setProfileLoadedFor(null);
+    setOrganizationLoadedFor(null);
+    setOrganizationProfile(null);
+    if (nextUser.isDemo && nextUser.role === "volunteer") setProfile(DEMO_VOLUNTEERS[0]);
     setUser(nextUser);
     setAuthOpen(false);
     setScreen(screenForRole(nextUser.role));
@@ -150,6 +196,9 @@ export default function Home() {
     // La interfaz sale de inmediato mientras Firebase limpia la sesión.
     void firebaseSignOut().catch(() => undefined);
     setUser(null);
+    setProfileLoadedFor(null);
+    setOrganizationLoadedFor(null);
+    setOrganizationProfile(null);
     setScreen("landing");
   }
 
@@ -179,8 +228,16 @@ export default function Home() {
   }
 
   const organization = user?.role === "organization"
-    ? organizations.find((item) => item.id === user.uid || (user.isDemo && item.id === "fundemos")) ?? DEMO_ORGANIZATION
+    ? organizationProfile ?? organizations.find((item) => item.id === user.uid || (user.isDemo && item.id === "fundemos")) ?? DEMO_ORGANIZATION
     : DEMO_ORGANIZATION;
+  const volunteerOnboarding = Boolean(
+    user && !user.isDemo && user.role === "volunteer"
+    && profileLoadedFor === user.uid && !volunteerProfileIsComplete(profile),
+  );
+  const organizationOnboarding = Boolean(
+    user && !user.isDemo && user.role === "organization"
+    && organizationLoadedFor === user.uid && organizationProfile && !organizationProfileIsComplete(organizationProfile),
+  );
 
   return (
     <main className="site-shell">
@@ -206,6 +263,8 @@ export default function Home() {
       <OpportunityDialog opportunity={selectedOpportunity} user={user} applications={applications} open={Boolean(selectedOpportunity)} onOpenChange={(open) => !open && setSelectedOpportunity(null)} onApply={apply} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onUser={loginAs} />
       <RoleSwitcher open={roleOpen} onOpenChange={setRoleOpen} onUser={loginAs} />
+      {user?.role === "volunteer" && !user.isDemo && <VolunteerProfileDialog user={user} profile={profile} open={volunteerOnboarding} onOpenChange={() => undefined} onSaved={setProfile} mandatory />}
+      {user?.role === "organization" && !user.isDemo && <OrganizationProfileDialog user={user} organization={organization} open={organizationOnboarding} onOpenChange={() => undefined} onSaved={(next) => { setOrganizationProfile(next); setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next]); }} mandatory />}
     </main>
   );
 }
@@ -457,14 +516,14 @@ function AuthDialog({ open, onOpenChange, onUser }: { open: boolean; onOpenChang
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="auth-dialog"><DialogHeader><span className="auth-mark"><HeartHandshake /></span><DialogTitle>Ingresá con Google</DialogTitle><DialogDescription>En el primer acceso elegí el perfil que vas a utilizar.</DialogDescription></DialogHeader><Button variant="outline" onClick={() => void login("volunteer")} disabled={loading}><UserRound /> Continuar como voluntario</Button><Button variant="outline" onClick={() => void login("organization")} disabled={loading}><Building2 /> Continuar como organización</Button><Button variant="outline" onClick={() => void login("admin")} disabled={loading}><Shield /> Acceso de administrador</Button><p className="demo-hint">Recorré el prototipo sin crear datos reales y cambiá de rol cuando quieras:</p><div className="demo-role-grid"><button onClick={() => onUser(DEMO_USERS.volunteer)}><UserRound /><span><b>Voluntario demo</b><small>Perfil y recomendaciones</small></span></button><button onClick={() => onUser(DEMO_USERS.organization)}><Building2 /><span><b>Organización demo</b><small>Oportunidades y solicitudes</small></span></button><button onClick={() => onUser(DEMO_USERS.admin)}><Shield /><span><b>Administrador demo</b><small>Supervisión y moderación</small></span></button></div></DialogContent></Dialog>;
 }
 
-function VolunteerProfileDialog({ user, profile, open, onOpenChange, onSaved }: { user: SessionUser; profile: VolunteerProfile; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (profile: VolunteerProfile) => void }) {
+function VolunteerProfileDialog({ user, profile, open, onOpenChange, onSaved, mandatory = false }: { user: SessionUser; profile: VolunteerProfile; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (profile: VolunteerProfile) => void; mandatory?: boolean }) {
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); const next = { ...profile, name: String(form.get("name")), location: String(form.get("location")), bio: String(form.get("bio")), interests: splitList(form.get("interests")), declaredSkills: splitList(form.get("skills")), availability: splitList(form.get("availability")) }; if (!next.name || !next.location || !next.interests.length || !next.declaredSkills.length || !next.availability.length) return toast.error("Completá nombre, ubicación, intereses, habilidades y disponibilidad."); try { if (!user.isDemo) await saveVolunteerProfile(next); onSaved(next); onOpenChange(false); toast.success("Perfil actualizado"); } catch (error) { toast.error("No pudimos guardar", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); } }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="create-dialog"><DialogHeader><DialogTitle>Configurar perfil</DialogTitle><DialogDescription>Estos datos se utilizan para calcular la compatibilidad.</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label>Nombre<Input name="name" defaultValue={profile.name} required /></label><label>Ubicación<Input name="location" defaultValue={profile.location} required /></label><label className="full">Sobre mí<Textarea name="bio" defaultValue={profile.bio} /></label><label className="full">Intereses separados por coma<Input name="interests" defaultValue={profile.interests.join(", ")} required /></label><label className="full">Habilidades separadas por coma<Input name="skills" defaultValue={(profile.declaredSkills ?? []).join(", ")} required /></label><label className="full">Disponibilidad separada por coma<Input name="availability" defaultValue={(profile.availability ?? []).join(", ")} placeholder="Sábado por la mañana" required /></label><DialogFooter className="full"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit">Guardar perfil</Button></DialogFooter></form></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={(nextOpen) => { if (!mandatory || nextOpen) onOpenChange(nextOpen); }}><DialogContent className="create-dialog" showCloseButton={!mandatory} onEscapeKeyDown={mandatory ? (event) => event.preventDefault() : undefined} onPointerDownOutside={mandatory ? (event) => event.preventDefault() : undefined}><DialogHeader><DialogTitle>{mandatory ? "Completá tu perfil para continuar" : "Configurar perfil"}</DialogTitle><DialogDescription>{mandatory ? "Necesitamos estos datos para recomendarte oportunidades acordes a vos." : "Estos datos se utilizan para calcular la compatibilidad."}</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label>Nombre<Input name="name" defaultValue={profile.name} required /></label><label>Ubicación<Input name="location" defaultValue={profile.location} required /></label><label className="full">Sobre mí<Textarea name="bio" defaultValue={profile.bio} /></label><label className="full">Intereses separados por coma<Input name="interests" defaultValue={profile.interests.join(", ")} placeholder="Ambiente, educación, comunidad" required /></label><label className="full">Habilidades separadas por coma<Input name="skills" defaultValue={(profile.declaredSkills ?? []).join(", ")} placeholder="Trabajo en equipo, creatividad" required /></label><label className="full">Disponibilidad separada por coma<Input name="availability" defaultValue={(profile.availability ?? []).join(", ")} placeholder="Sábado por la mañana" required /></label><DialogFooter className="full">{!mandatory && <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>}<Button type="submit">{mandatory ? "Guardar y entrar" : "Guardar perfil"}</Button></DialogFooter></form></DialogContent></Dialog>;
 }
 
-function OrganizationProfileDialog({ user, organization, open, onOpenChange, onSaved }: { user: SessionUser; organization: Organization; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (organization: Organization) => void }) {
+function OrganizationProfileDialog({ user, organization, open, onOpenChange, onSaved, mandatory = false }: { user: SessionUser; organization: Organization; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (organization: Organization) => void; mandatory?: boolean }) {
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); const next = { ...organization, name: String(form.get("name")), description: String(form.get("description")), location: String(form.get("location")), province: String(form.get("province")), contact: String(form.get("contact")) }; if (!next.name || !next.description || !next.location || !next.contact) return toast.error("Completá todos los campos obligatorios."); try { if (!user.isDemo) await saveOrganizationProfile(next); onSaved(next); onOpenChange(false); toast.success("Perfil actualizado"); } catch (error) { toast.error("No pudimos guardar", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); } }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="create-dialog"><DialogHeader><DialogTitle>Perfil de la organización</DialogTitle><DialogDescription>Información principal y de contacto.</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label>Nombre<Input name="name" defaultValue={organization.name} required /></label><label>Provincia<Input name="province" defaultValue={organization.province} required /></label><label className="full">Descripción<Textarea name="description" defaultValue={organization.description} required /></label><label>Ubicación<Input name="location" defaultValue={organization.location} required /></label><label>Contacto<Input name="contact" defaultValue={organization.contact} required /></label><DialogFooter className="full"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit">Guardar</Button></DialogFooter></form></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={(nextOpen) => { if (!mandatory || nextOpen) onOpenChange(nextOpen); }}><DialogContent className="create-dialog" showCloseButton={!mandatory} onEscapeKeyDown={mandatory ? (event) => event.preventDefault() : undefined} onPointerDownOutside={mandatory ? (event) => event.preventDefault() : undefined}><DialogHeader><DialogTitle>{mandatory ? "Completá la organización para continuar" : "Perfil de la organización"}</DialogTitle><DialogDescription>{mandatory ? "Esta información es necesaria antes de publicar oportunidades o recibir solicitudes." : "Información principal y de contacto."}</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label>Nombre<Input name="name" defaultValue={organization.name} required /></label><label>Provincia<Input name="province" defaultValue={organization.province} required /></label><label className="full">Descripción<Textarea name="description" defaultValue={organization.description} required /></label><label>Ubicación<Input name="location" defaultValue={organization.location} required /></label><label>Contacto<Input name="contact" defaultValue={organization.contact} required /></label><DialogFooter className="full">{!mandatory && <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>}<Button type="submit">{mandatory ? "Guardar y entrar" : "Guardar"}</Button></DialogFooter></form></DialogContent></Dialog>;
 }
 
 function OpportunityEditor({ user, organization, opportunity, open, onOpenChange, onSaved }: { user: SessionUser; organization: Organization; opportunity: Opportunity | null; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (opportunity: Opportunity) => void }) {
