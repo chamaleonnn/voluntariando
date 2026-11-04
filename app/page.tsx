@@ -73,6 +73,26 @@ function organizationProfileIsComplete(organization: Organization) {
   );
 }
 
+// Perfil vacío temporal: evita mostrar datos del usuario demo mientras Firebase carga la cuenta real.
+function emptyVolunteerProfile(user: SessionUser): VolunteerProfile {
+  return {
+    id: user.uid,
+    name: user.displayName,
+    initials: user.displayName.split(" ").map((part) => part[0]).join("").slice(0, 2),
+    location: "Córdoba",
+    bio: "",
+    completedExperiences: 0,
+    verifiedHours: 0,
+    interests: [],
+    declaredSkills: [],
+    verifiedSkills: {},
+    availability: [],
+    experiences: [],
+    visibleToOrganizations: true,
+    visibleToVolunteers: true,
+  };
+}
+
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("landing");
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -121,6 +141,7 @@ export default function Home() {
     setProfileLoadedFor(null);
     setOrganizationLoadedFor(null);
     setOrganizationProfile(null);
+    if (nextUser?.role === "volunteer") setProfile(nextUser.isDemo ? DEMO_VOLUNTEERS[0] : emptyVolunteerProfile(nextUser));
     setUser(nextUser);
     if (nextUser) setScreen(screenForRole(nextUser.role));
   }), []);
@@ -185,7 +206,7 @@ export default function Home() {
     setProfileLoadedFor(null);
     setOrganizationLoadedFor(null);
     setOrganizationProfile(null);
-    if (nextUser.isDemo && nextUser.role === "volunteer") setProfile(DEMO_VOLUNTEERS[0]);
+    if (nextUser.role === "volunteer") setProfile(nextUser.isDemo ? DEMO_VOLUNTEERS[0] : emptyVolunteerProfile(nextUser));
     setUser(nextUser);
     setAuthOpen(false);
     setScreen(screenForRole(nextUser.role));
@@ -247,10 +268,12 @@ export default function Home() {
       <div className="screen-stage" key={screen}>
         {screen === "landing" && <Landing opportunities={opportunities} onExplore={() => navigate("opportunities")} onLogin={() => setAuthOpen(true)} />}
         {screen === "opportunities" && <OpportunityFeed opportunities={recommended} user={user} onOpen={setSelectedOpportunity} />}
-        {screen === "volunteer" && user?.role === "volunteer" && (
+        {screen === "volunteer" && user?.role === "volunteer" && !user.isDemo && profileLoadedFor !== user.uid && <ProfileLoading />}
+        {screen === "volunteer" && user?.role === "volunteer" && (user.isDemo || profileLoadedFor === user.uid) && (
           <VolunteerPanel user={user} profile={profile} applications={applications} opportunities={recommended} onProfile={setProfile} onExplore={() => navigate("opportunities")} />
         )}
-        {screen === "organization" && user?.role === "organization" && (
+        {screen === "organization" && user?.role === "organization" && !user.isDemo && organizationLoadedFor !== user.uid && <ProfileLoading />}
+        {screen === "organization" && user?.role === "organization" && (user.isDemo || organizationLoadedFor === user.uid) && (
           <OrganizationPanel
             user={user} organization={organization} opportunities={opportunities} applications={applications}
             onOrganization={(next) => setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next])}
@@ -267,6 +290,10 @@ export default function Home() {
       {user?.role === "organization" && !user.isDemo && <OrganizationProfileDialog user={user} organization={organization} open={organizationOnboarding} onOpenChange={() => undefined} onSaved={(next) => { setOrganizationProfile(next); setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next]); }} mandatory />}
     </main>
   );
+}
+
+function ProfileLoading() {
+  return <section className="profile-loading" role="status"><span className="profile-loading-mark"><Sparkles /></span><h1>Preparando tu espacio…</h1><p>Estamos cargando tu perfil de forma segura.</p></section>;
 }
 
 function SiteHeader({ screen, user, onTheme, onNavigate, onLogin, onSwitchRole, onSignOut }: {

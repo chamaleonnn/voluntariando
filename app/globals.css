@@ -244,6 +244,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 /* Paneles de rol. */
 .dashboard-page { min-height: calc(100vh - 74px); background: #f5f6f2; }
+.profile-loading { min-height: calc(100vh - 74px); display: grid; place-items: center; align-content: center; gap: 10px; padding: 24px; text-align: center; }
+.profile-loading-mark { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 18px 18px 18px 6px; background: rgba(157, 219, 196, .24); color: #2d8069; animation: loading-pulse 1.3s ease-in-out infinite; }
+.profile-loading-mark svg { width: 25px; }
+.profile-loading h1 { margin: 5px 0 0; font-size: clamp(1.7rem, 4vw, 2.5rem); letter-spacing: -.04em; }
+.profile-loading p { margin: 0; color: #71807a; }
+@keyframes loading-pulse { 50% { transform: translateY(-4px); opacity: .65; } }
 .dashboard-hero { min-height: 220px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 20px; padding: 38px clamp(20px, 6vw, 88px) 70px; background: linear-gradient(120deg, #e9f4eb, #f4ecfb 65%, #fff0dd); }
 .dashboard-icon { width: 62px; height: 62px; display: grid; place-items: center; border-radius: 20px 20px 20px 7px; background: white; color: #21715c; box-shadow: 0 12px 28px rgba(45,76,65,.1); }
 .dashboard-icon svg { width: 29px; height: 29px; }
