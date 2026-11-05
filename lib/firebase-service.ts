@@ -2,7 +2,6 @@ import {
   GoogleAuthProvider,
   getRedirectResult,
   onAuthStateChanged,
-  signInWithPopup,
   signInWithRedirect,
   signOut,
   type User,
@@ -164,13 +163,6 @@ export function observeAuth(callback: (user: SessionUser | null) => void) {
   });
 }
 
-function needsRedirect() {
-  const agent = window.navigator.userAgent;
-  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(agent);
-  const embedded = /Instagram|FBAN|FBAV|Line|WhatsApp/i.test(agent);
-  return mobile || embedded;
-}
-
 export function authErrorMessage(error: unknown) {
   const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
   if (code.includes("popup-blocked")) return "El navegador bloqueó la ventana de Google. Abrí el enlace en Chrome o Safari e intentá nuevamente.";
@@ -188,22 +180,14 @@ export async function firebaseSignInWithGoogle(role: SessionUser["role"] = "volu
   provider.setCustomParameters({ prompt: "select_account" });
   window.localStorage.setItem("voluntariando-requested-role", role);
 
-  if (needsRedirect()) {
-    await signInWithRedirect(auth, provider);
-  }
-
   try {
-    const result = await signInWithPopup(auth, provider);
-    window.localStorage.removeItem("voluntariando-requested-role");
-    return await toSessionUser(result.user, role);
+    // La redirección completa evita bloqueos de popups y funciona igual en escritorio y celular.
+    await signInWithRedirect(auth, provider);
+    return await new Promise<SessionUser>(() => undefined);
   } catch (error) {
-    const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
-    if (code.includes("popup-blocked") || code.includes("operation-not-supported-in-this-environment")) {
-      await signInWithRedirect(auth, provider);
-    }
     window.localStorage.removeItem("voluntariando-requested-role");
     if (auth.currentUser) await signOut(auth);
-    throw new Error(authErrorMessage(error));
+    throw error;
   }
 }
 
