@@ -1,8 +1,7 @@
 import {
   GoogleAuthProvider,
-  getRedirectResult,
   onAuthStateChanged,
-  signInWithRedirect,
+  signInWithPopup,
   signOut,
   type User,
 } from "firebase/auth";
@@ -142,11 +141,6 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
 export function observeAuth(callback: (user: SessionUser | null) => void) {
   if (!auth || !db) return () => undefined;
   const firebaseAuth = auth;
-  void getRedirectResult(firebaseAuth).catch((error) => {
-    window.localStorage.setItem("voluntariando-auth-error", authErrorMessage(error));
-    window.localStorage.removeItem("voluntariando-requested-role");
-    console.error("No se pudo completar el ingreso con Google", error);
-  });
   return onAuthStateChanged(firebaseAuth, async (user) => {
     if (!user) return callback(null);
     try {
@@ -181,9 +175,10 @@ export async function firebaseSignInWithGoogle(role: SessionUser["role"] = "volu
   window.localStorage.setItem("voluntariando-requested-role", role);
 
   try {
-    // La redirección completa evita bloqueos de popups y funciona igual en escritorio y celular.
-    await signInWithRedirect(auth, provider);
-    return await new Promise<SessionUser>(() => undefined);
+    // El popup evita el bloqueo de almacenamiento cruzado que afecta a web.app en Chrome y Safari.
+    const result = await signInWithPopup(auth, provider);
+    window.localStorage.removeItem("voluntariando-requested-role");
+    return await toSessionUser(result.user, role);
   } catch (error) {
     window.localStorage.removeItem("voluntariando-requested-role");
     if (auth.currentUser) await signOut(auth);
