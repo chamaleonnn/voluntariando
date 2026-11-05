@@ -444,6 +444,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .profile-info-row { display: grid; gap: 3px; margin: 12px 0; padding-bottom: 10px; border-bottom: 1px solid #edf0ed; }
 .profile-info-row small { color: #7e8c86; font-size: .65rem; text-transform: uppercase; }
 .profile-info-row b { color: #3e544c; font-size: .78rem; }
+.form-divider { display: grid; gap: 3px; padding-top: 10px; border-top: 1px solid var(--border); }
+.form-divider b { font-size: .76rem; }
+.form-divider small { color: var(--muted-foreground); font-size: .65rem; }
+.social-links { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+.social-links a { display: inline-flex; align-items: center; gap: 5px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 999px; color: var(--foreground); font-size: .65rem; font-weight: 750; text-decoration: none; }
+.social-links a:hover { background: var(--muted); }
+.social-links svg { width: 14px; height: 14px; }
 
 /* Vía: camaleón mecha que combina métricas existentes con preguntas breves. */
 .guide-assistant { position: fixed; right: 24px; bottom: 24px; z-index: 80; display: grid; justify-items: end; gap: 10px; }

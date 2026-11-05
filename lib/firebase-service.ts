@@ -94,6 +94,7 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
         verifiedSkills: {},
         featuredMedals: [],
         availability: [],
+        socialLinks: {},
         experiences: [],
         visibleToOrganizations: true,
         visibleToVolunteers: true,

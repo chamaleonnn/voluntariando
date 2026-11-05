@@ -138,6 +138,11 @@ export type VolunteerProfile = {
   verifiedSkills?: Record<string, number>;
   featuredMedals?: string[];
   availability?: string[];
+  socialLinks?: {
+    instagram?: string;
+    linkedin?: string;
+    other?: string;
+  };
   experiences?: Array<{
     opportunityId: string;
     opportunityTitle: string;
