@@ -14,6 +14,7 @@ Actualizado: 5 de noviembre de 2026. Rama: `codex/e4-core`.
 - Ausencias sobre participaciones confirmadas: reporte no duplicable, revisión administrativa, historial visible, avisos privados y suspensión temporal al tercer caso confirmado. La interfaz recuerda el aviso mínimo de 6 horas.
 - Ajustes móviles de diálogos, formularios, acciones administrativas y textos accesibles sin cambiar el diseño general.
 - Privacidad efectiva para perfiles visibles a organizaciones/voluntarios, comunidad de voluntarios con redes opcionales y correos habilitados únicamente después de una aceptación.
+- Validador local de respuestas semánticas: limita a cinco relaciones, exige estructura válida y descarta evidencias inventadas antes de afectar el motor.
 
 ## Verificado
 
@@ -21,6 +22,7 @@ Actualizado: 5 de noviembre de 2026. Rama: `codex/e4-core`.
 - Motor de recomendaciones: 6 pruebas aprobadas, 0 fallidas, incluida coherencia semántica con pesos invariables.
 - ESLint específico de archivos modificados: aprobado.
 - Sintaxis de Firebase Function: aprobada.
+- Validación semántica de OpenAI: 2 pruebas locales aprobadas, 0 fallidas.
 
 ## Bloqueado externamente
 

@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import OpenAI from "openai";
+import { explainSemanticRelationships, validateSemanticRelationships } from "./semantic-validation.js";
 
 const openAiKey = defineSecret("OPENAI_API_KEY");
 
@@ -69,13 +70,7 @@ export const analyzeSemanticCompatibility = onCall({
     ],
   });
   const parsed = JSON.parse(response.output_text);
-  const profileEvidence = new Set(Object.values(volunteer).flat(Infinity).map(String));
-  const opportunityEvidence = new Set(Object.values(target).flat(Infinity).map(String));
-  const relationships = (parsed.relationships ?? []).filter((item) =>
-    profileEvidence.has(item.profileEvidence) && opportunityEvidence.has(item.opportunityEvidence),
-  );
-  const explanation = relationships.length
-    ? `La IA encontró relaciones entre ${relationships.slice(0, 3).map((item) => `${item.profileEvidence} y ${item.opportunityEvidence}`).join(", ")}.`
-    : "La IA no encontró relaciones adicionales respaldadas por los datos disponibles.";
+  const relationships = validateSemanticRelationships(parsed, volunteer, target);
+  const explanation = explainSemanticRelationships(relationships);
   return { relationships, explanation };
 });
