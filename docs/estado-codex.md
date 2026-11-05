@@ -12,6 +12,7 @@ Actualizado: 5 de noviembre de 2026. Rama: `codex/e4-core`.
 - Devoluciones con aspectos a mejorar: revisión administrativa, advertencia privada, conteo de 90 días y suspensión temporal al segundo caso confirmado.
 - Reactivación segura al vencer una suspensión temporal.
 - Ausencias sobre participaciones confirmadas: reporte no duplicable, revisión administrativa, historial visible, avisos privados y suspensión temporal al tercer caso confirmado. La interfaz recuerda el aviso mínimo de 6 horas.
+- Ajustes móviles de diálogos, formularios, acciones administrativas y textos accesibles sin cambiar el diseño general.
 
 ## Verificado
 
@@ -26,5 +27,5 @@ Actualizado: 5 de noviembre de 2026. Rama: `codex/e4-core`.
 
 ## Próximo bloque
 
-- Pulido móvil y accesibilidad.
+- Revisión visual manual en dispositivos reales y pruebas de navegación con usuarios.
 - Mejoras visuales y tutoriales interactivos de Vía pospuestos; conservar los cuatro videos actuales.

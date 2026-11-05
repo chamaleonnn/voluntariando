@@ -712,6 +712,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .ambient-background::before { width: 120vw; opacity: .2; }
   .ambient-orb { filter: blur(74px); }
   .opportunity-photo { margin: 10px; min-height: 190px; }
+  .create-dialog, .opportunity-dialog, .notification-dialog, .tutorial-dialog, .guide-dialog {
+    width: calc(100vw - 20px) !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 20px) !important;
+    padding: 20px 16px !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-radius: 20px;
+  }
+  .opportunity-dialog { padding-top: 0 !important; }
+  .opportunity-dialog .dialog-cover { margin-inline: -16px; }
+  [data-slot="dialog-footer"] { flex-wrap: wrap; }
+  [data-slot="dialog-footer"] > button { min-height: 44px; flex: 1 1 130px; }
+  .skill-checks > div { grid-template-columns: 1fr; }
+  .admin-list > div { align-items: flex-start; flex-wrap: wrap; }
+  .admin-list > div > button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
