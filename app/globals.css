@@ -294,9 +294,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .visibility-box label { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid #e4eae5; }
 .visibility-box label > span { display: grid; gap: 2px; font-size: .73rem; font-weight: 750; }
 .visibility-box small { color: #8a9691; font-size: .64rem; font-weight: 500; }
-.featured-medals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.featured-title { margin: 20px 0 10px; color: #486057; font-size: .76rem; }
 .featured-empty { margin: 18px 0; padding: 12px; border: 1px dashed #cfdad2; border-radius: 12px; color: #71807a; font-size: .72rem; text-align: center; }
+.verified-skill-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.verified-skill-list > span { display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border: 1px solid #d9e5dc; border-radius: 999px; background: #f3f8f4; color: #3d6256; font-size: .68rem; font-weight: 750; }
+.verified-skill-list svg { width: 14px; height: 14px; }
 .panel-note { margin: 15px 0 0; padding: 11px; border-radius: 10px; background: #f7f3e8; color: #786744; font-size: .67rem; line-height: 1.5; }
 .timeline-list { display: grid; gap: 9px; }
 .timeline-list > div { display: flex; align-items: center; gap: 12px; padding: 13px; border: 1px solid #e7ebe7; border-radius: 13px; }
@@ -314,7 +315,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .volunteer-grid-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .volunteer-card { padding: 16px; border: 1px solid #e3e9e4; border-radius: 16px; background: #fcfdfb; }
 .volunteer-card > p { min-height: 42px; margin: 13px 0; color: #718079; font-size: .71rem; line-height: 1.45; }
-.tiny-medals { display: flex; gap: 8px; margin: 10px 0; overflow: hidden; }
 .volunteer-card footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 11px; border-top: 1px solid #e8ede9; color: #62736b; font-size: .68rem; }
 .task-row, .admin-row { display: flex; align-items: center; gap: 12px; }
 .task-row > div, .admin-row > div { flex: 1; }
@@ -341,34 +341,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .table-row { border-bottom: 1px solid #edf0ed; color: #65736e; font-size: .7rem; }
 .table-row > span:last-child { display: flex; justify-content: flex-end; }
 .table-row button svg { width: 15px; }
-
-/* Las dos familias de medallas usan formas y paletas diferentes. */
-.skill-medal { min-width: 0; display: grid; justify-items: center; gap: 5px; padding: 4px; border: 2px solid transparent; border-radius: 15px; background: transparent; color: #32483f; cursor: default; }
-.skill-medal:not(:disabled) { cursor: pointer; }
-.skill-medal.selected { border-color: #62a38e; background: #edf6ef; }
-.skill-medal-shape { position: relative; width: 74px; height: 74px; display: grid; place-items: center; background: var(--medal-color); color: var(--medal-ink); }
-.skill-medal.personal .skill-medal-shape { border: 3px solid var(--medal-ink); border-radius: 50%; }
-.skill-medal.practical .skill-medal-shape { clip-path: polygon(25% 5%,75% 5%,98% 27%,98% 73%,75% 95%,25% 95%,2% 73%,2% 27%); }
-.skill-medal.practical .skill-medal-shape::after { content: ""; position: absolute; inset: 6px; border: 2px solid color-mix(in srgb, var(--medal-ink), transparent 15%); clip-path: inherit; }
-.skill-medal-icons { display: flex; align-items: center; justify-content: center; gap: 1px; z-index: 1; }
-.skill-medal-icons svg { width: 29px; height: 29px; stroke-width: 1.9; }
-.skill-medal-icons svg + svg { width: 20px; margin-left: -6px; }
-.skill-medal-shape > strong { position: absolute; top: -5px; right: -5px; min-width: 25px; height: 25px; display: grid; place-items: center; z-index: 2; border: 2px solid var(--medal-ink); border-radius: 50%; background: var(--medal-color); color: var(--medal-ink); font-size: .7rem; }
-.skill-medal.practical .skill-medal-shape > strong { border-radius: 7px; }
-.skill-medal-name { max-width: 105px; min-height: 28px; display: grid; place-items: center; color: #384e45; font-size: .62rem; font-weight: 800; line-height: 1.12; text-align: center; }
-.skill-medal small { padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--medal-color), white 50%); color: #4b5a55; font-size: .56rem; }
-.skill-medal.compact { padding: 0; }
-.skill-medal.compact .skill-medal-shape { width: 58px; height: 58px; }
-.skill-medal.compact .skill-medal-icons svg { width: 22px; height: 22px; }
-.skill-medal.compact .skill-medal-icons svg + svg { width: 15px; }
-.skill-medal.compact .skill-medal-name { max-width: 78px; min-height: 24px; font-size: .54rem; }
-.skill-medal.compact small { display: none; }
-.skill-medal.locked { filter: grayscale(.75); opacity: .45; }
-.skill-medal.earned { filter: drop-shadow(0 8px 12px color-mix(in srgb, var(--medal-ink), transparent 78%)); }
-.tiny-medals .skill-medal-name { display: none; }
-.tiny-medals .skill-medal.compact .skill-medal-shape { width: 42px; height: 42px; }
-.tiny-medals .skill-medal-shape > strong { min-width: 19px; height: 19px; top: -4px; right: -4px; font-size: .55rem; }
-.tiny-medals .skill-medal-icons svg { width: 17px; height: 17px; }
 
 /* Diálogos. */
 .opportunity-dialog { max-width: 720px !important; max-height: 92vh; overflow-y: auto; padding: 0 24px 24px !important; }
@@ -411,14 +383,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .demo-role-grid button span { display: grid; gap: 2px; }
 .demo-role-grid b { font-size: .78rem; }
 .demo-role-grid small { color: #7e8b86; font-size: .65rem; }
-.medal-dialog { width: min(95vw, 960px) !important; max-width: 960px !important; max-height: 92vh; overflow-y: auto; }
-.medal-dialog h3 { margin: 11px 0 4px; font-size: .84rem; }
-.medal-counter { width: max-content; padding: 6px 10px; border-radius: 999px; background: #edf5ef; color: #39715f; font-size: .68rem; font-weight: 800; }
-.medal-catalog { display: grid; grid-template-columns: repeat(8, 1fr); gap: 7px; }
-.featured-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.featured-picker > button { padding: 9px; border: 2px solid transparent; border-radius: 16px; background: transparent; cursor: pointer; }
-.featured-picker > button:hover, .featured-picker > button.selected { border-color: #62a38e; background: #edf6ef; }
-.featured-picker > button:disabled { cursor: not-allowed; opacity: .45; }
 .create-dialog { max-width: 700px !important; max-height: 92vh; overflow-y: auto; }
 .create-form { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
 .create-form label { display: grid; gap: 6px; color: #53675f; font-size: .72rem; font-weight: 750; }
@@ -428,12 +392,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .status-banner svg { width: 20px; flex: 0 0 auto; }
 .status-banner p { margin: 0; font-size: .75rem; line-height: 1.45; }
 .status-banner p b { display: block; }
-.medal-checks { margin: 0; padding: 14px; border: 1px solid #dfe7e1; border-radius: 14px; }
-.medal-checks legend { padding: 0 5px; color: #425c52; font-size: .75rem; font-weight: 800; }
-.medal-checks > p { margin: 0 0 10px; color: #936d32; font-size: .67rem; }
-.medal-checks > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
-.medal-checks label, .simple-check { display: flex !important; grid-template-columns: none; align-items: center; gap: 7px; padding: 8px; border-radius: 9px; background: #f5f7f4; font-size: .65rem; }
-.medal-checks input, .simple-check input { width: 15px; height: 15px; accent-color: #2f7b65; }
+.skill-checks { margin: 0; padding: 14px; border: 1px solid #dfe7e1; border-radius: 14px; }
+.skill-checks legend { padding: 0 5px; color: #425c52; font-size: .75rem; font-weight: 800; }
+.skill-checks > p { margin: 0 0 10px; color: #6f7f79; font-size: .67rem; }
+.skill-checks > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.skill-checks label, .simple-check { display: flex !important; grid-template-columns: none; align-items: center; gap: 7px; padding: 8px; border-radius: 9px; background: #f5f7f4; font-size: .65rem; }
+.skill-checks input, .simple-check input { width: 15px; height: 15px; accent-color: #2f7b65; }
+.skill-counter { width: max-content; padding: 6px 10px; border-radius: 999px; background: #edf5ef; color: #39715f; font-size: .68rem; font-weight: 800; }
 .moderation-thumb { width: 56px; height: 56px; flex: 0 0 auto; border-radius: 10px; background-position: center; background-size: cover; }
 .review-photo { width: 100%; height: 100px; margin-bottom: 10px; border-radius: 10px; object-fit: cover; }
 .admin-review-photo { width: 88px; height: 64px; flex: 0 0 88px; border-radius: 10px; object-fit: cover; }
@@ -521,7 +486,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .feed-layout { grid-template-columns: 210px minmax(0, 1fr); }
   .feed-aside { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
   .steps-row { grid-template-columns: 1fr 1fr; }
-  .medal-catalog { grid-template-columns: repeat(4, 1fr); }
 }
 
 @media (max-width: 760px) {
@@ -556,7 +520,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .dashboard-grid, .admin-grid { grid-template-columns: 1fr; }
   .panel-card.wide-panel { grid-column: 1; }
-  .featured-medals, .mini-opportunity-grid, .volunteer-grid-cards { grid-template-columns: 1fr 1fr; }
+  .mini-opportunity-grid, .volunteer-grid-cards { grid-template-columns: 1fr 1fr; }
   .review-grid { grid-template-columns: 1fr; }
   .volunteer-card-grid { grid-template-columns: 1fr; }
   .dialog-columns { grid-template-columns: 1fr; }
@@ -574,11 +538,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .auth-dialog .demo-hint { margin: 0; padding: 8px 10px; }
   .auth-dialog .demo-role-grid { gap: 7px; }
   .auth-dialog .demo-role-grid button { min-height: 54px; padding: 9px 11px; }
-  .medal-catalog { grid-template-columns: repeat(2, 1fr); }
-  .featured-picker { grid-template-columns: repeat(2, 1fr); }
   .create-form { grid-template-columns: 1fr; }
   .create-form .full { grid-column: 1; }
-  .medal-checks > div { grid-template-columns: repeat(2, 1fr); }
+  .skill-checks > div { grid-template-columns: repeat(2, 1fr); }
   .inline-actions { width: 100%; justify-content: flex-end; }
   .admin-row { align-items: flex-start; flex-wrap: wrap; }
   .guide-assistant { right: 14px; bottom: 76px; }

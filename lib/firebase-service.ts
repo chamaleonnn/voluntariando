@@ -92,7 +92,6 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
         interests: [],
         declaredSkills: [],
         verifiedSkills: {},
-        featuredMedals: [],
         availability: [],
         socialLinks: {},
         experiences: [],

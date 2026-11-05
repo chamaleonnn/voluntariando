@@ -353,7 +353,6 @@ export const DEMO_VOLUNTEERS: VolunteerProfile[] = [
       "Educación y acompañamiento": 1,
       "Deporte, juego y recreación": 1,
     },
-    featuredMedals: ["Arte y creatividad", "Naturaleza y ambiente", "Organización y logística", "Educación y acompañamiento"],
     availability: ["Sábado por la mañana"],
     experiences: [
       {
