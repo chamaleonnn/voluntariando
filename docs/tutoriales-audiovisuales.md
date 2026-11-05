@@ -1,11 +1,11 @@
 # Guiones de captura - tutoriales Voluntariando
 
-Estado: listos para grabación. Los archivos actuales de `public/videos/` se conservan hasta que cada reemplazo pase control visual y sea reproducible.
+Estado: producidos y validados. Los cuatro reemplazos están en `public/videos/`, duran 15 segundos y conservan los nombres usados por la landing.
 
 ## Especificación común
 
-- Formato: MP4 H.264, 1280×720, 30 fps, sin audio obligatorio, 12-20 segundos.
-- Captura: aplicación local real, datos demo identificados, modo claro, cursor visible y sin herramientas de desarrollo.
+- Formato: MP4 H.264, 1280×720, 30 fps, sin audio, 15 segundos.
+- Presentación: recorrido gráfico fiel a las acciones reales, sin pantallas ni funciones inexistentes.
 - Subtítulos: integrados en zona inferior segura, máximo dos líneas, blanco sobre placa oscura semitransparente.
 - Inicio/cierre: Vía aparece 1 segundo con el título; cierre de 1 segundo con “Podés repetir este recorrido desde ?”.
 - Móvil: textos dentro del 80 % central y peso mínimo equivalente a 24 px en 720p.
@@ -65,6 +65,6 @@ Perfil validado → `Nueva oportunidad` → completar tareas/habilidades → pub
 
 Estados saludo → explicación → pensamiento → celebración; mostrar minimización, reapertura y pregunta “¿Todavía no decidís dónde ayudar?”. Subtítulo final: “Vía orienta; el algoritmo conserva el control del porcentaje”.
 
-## Criterio de sustitución
+## Sustitución realizada
 
-Un original solo puede reemplazarse cuando el MP4 nuevo existe, abre en navegador, tiene duración y subtítulos correctos, muestra únicamente funciones reales y cuenta con poster actualizado. Hasta entonces la landing sigue usando los cuatro originales.
+Los cuatro MP4 abren correctamente, tienen duración y textos integrados, explican únicamente funciones reales y cuentan con posters actualizados. El generador reproducible queda en `scripts/generate-tutorial-videos.py`.

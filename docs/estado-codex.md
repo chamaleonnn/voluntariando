@@ -16,7 +16,7 @@ Actualizado: 5 de noviembre de 2026. Rama: `codex/e4-core`.
 - Privacidad efectiva para perfiles visibles a organizaciones/voluntarios, comunidad de voluntarios con redes opcionales y correos habilitados únicamente después de una aceptación.
 - Validador local de respuestas semánticas: limita a cinco relaciones, exige estructura válida y descarta evidencias inventadas antes de afectar el motor.
 - Vía visual: cinco estados animados, minimización, comportamiento móvil y tutorial de siete pasos por rol sobre componentes reales.
-- Guiones y storyboards de cuatro videos renovados más dos opcionales preparados en `docs/tutoriales-audiovisuales.md`; originales conservados.
+- Cuatro videos de la landing renovados en H.264, 1280×720 y 15 segundos, con Vía, textos integrados y posters actualizados; generador reproducible conservado en `scripts/generate-tutorial-videos.py`.
 
 ## Verificado
 
@@ -29,10 +29,9 @@ Actualizado: 5 de noviembre de 2026. Rama: `codex/e4-core`.
 ## Bloqueado externamente
 
 - Ejecución real de OpenAI en producción: Firebase Functions/secreto requieren configurar facturación fuera de Spark. No se activó Blaze ni se desplegó.
-- Producción de MP4 renovados: la conexión audiovisual requiere reautenticación. No se sustituyeron ni eliminaron los cuatro videos actuales.
 - Verificación visual automatizada local: el navegador conserva una política que bloquea `localhost:3000`; se validó por compilación y análisis estático, sin intentar eludirla.
 
 ## Próximo bloque
 
 - Revisión visual manual en dispositivos reales y pruebas de navegación con usuarios.
-- Grabar/producir los MP4 renovados cuando vuelva a estar disponible la conexión audiovisual; luego validar y recién entonces sustituir referencias.
+- Revisar los tutoriales y videos publicados en dispositivos reales con usuarios de ambos roles.
