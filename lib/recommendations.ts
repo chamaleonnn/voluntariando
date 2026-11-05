@@ -18,6 +18,7 @@ function normalize(value: string) {
 function related(left: string, right: string) {
   const a = normalize(left);
   const b = normalize(right);
+  if (!a || !b) return false;
   if (a.includes(b) || b.includes(a)) return true;
   return semanticGroups.some((group) => {
     const normalized = group.map(normalize);
@@ -31,17 +32,21 @@ function overlap(source: string[], target: string[]) {
   return Math.round((hits / target.length) * 100);
 }
 
-function calculate(profile: VolunteerProfile, opportunity: Opportunity): { score: number; breakdown: Breakdown; explanation: string } {
+export function calculateCompatibility(profile: VolunteerProfile, opportunity: Opportunity): { score: number; breakdown: Breakdown; explanation: string } {
   const declared = profile.declaredSkills ?? [];
   const verified = Object.entries(profile.verifiedSkills ?? {})
     .filter(([, count]) => count > 0)
     .map(([skill]) => skill);
   const required = opportunity.requiredSkills ?? [];
 
-  // HU-06: las habilidades verificadas pesan más que las declaradas.
+  // Si existen ambas fuentes, lo verificado pesa más. Un perfil nuevo no es castigado por no tener experiencia todavía.
   const declaredScore = overlap(declared, required);
   const verifiedScore = overlap(verified, required);
-  const skills = required.length ? Math.round(declaredScore * 0.35 + verifiedScore * 0.65) : 100;
+  const skills = !required.length
+    ? 100
+    : declared.length && verified.length
+      ? Math.round(declaredScore * 0.35 + verifiedScore * 0.65)
+      : verified.length ? verifiedScore : declaredScore;
   const interests = overlap(profile.interests, [opportunity.category]);
   const availability = overlap(profile.availability ?? [], opportunity.availability ?? []);
   const location = opportunity.modality === "Virtual"
@@ -80,7 +85,7 @@ export function recommendOpportunities(items: Opportunity[], profile: VolunteerP
   if (!profile) return items;
   return items
     .map((opportunity) => {
-      const result = calculate(profile, opportunity);
+      const result = calculateCompatibility(profile, opportunity);
       return {
         ...opportunity,
         compatibility: result.score,
