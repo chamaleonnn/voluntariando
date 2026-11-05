@@ -340,7 +340,7 @@ export default function Home() {
       <Toaster position="top-center" offset={90} richColors />
       <SiteHeader screen={screen} user={user} notifications={notifications} onReadNotification={readNotification} onTutorial={() => setTutorialOpen(true)} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSignOut={signOut} />
       <div className="screen-stage" key={screen}>
-        {screen === "landing" && <Landing opportunities={opportunities} reviews={reviews} reviewPhotos={reviewPhotos} user={user} onExplore={() => navigate("opportunities")} onLogin={() => setAuthOpen(true)} />}
+        {screen === "landing" && <Landing opportunities={opportunities} reviews={reviews} reviewPhotos={reviewPhotos} user={user} onExplore={() => navigate("opportunities")} onLogin={() => setAuthOpen(true)} onAccount={() => user && navigate(screenForRole(user.role))} />}
         {screen === "opportunities" && <OpportunityFeed opportunities={recommended} user={user} onOpen={setSelectedOpportunity} />}
         {screen === "volunteer" && user?.role === "volunteer" && !user.isDemo && profileLoadedFor !== user.uid && <ProfileLoading />}
         {screen === "volunteer" && user?.role === "volunteer" && (user.isDemo || profileLoadedFor === user.uid) && (
@@ -457,7 +457,7 @@ function ViaVideoWelcome({ role, open, onFinish }: { role: "volunteer" | "organi
   </div>;
 }
 
-function Landing({ opportunities, reviews, reviewPhotos, user, onExplore, onLogin }: { opportunities: Opportunity[]; reviews: Review[]; reviewPhotos: ReviewPhoto[]; user: SessionUser | null; onExplore: () => void; onLogin: () => void }) {
+function Landing({ opportunities, reviews, reviewPhotos, user, onExplore, onLogin, onAccount }: { opportunities: Opportunity[]; reviews: Review[]; reviewPhotos: ReviewPhoto[]; user: SessionUser | null; onExplore: () => void; onLogin: () => void; onAccount: () => void }) {
   const [guide, setGuide] = useState<number | null>(null);
   const [reportedReview, setReportedReview] = useState<Review | null>(null);
   const steps = [
@@ -468,7 +468,7 @@ function Landing({ opportunities, reviews, reviewPhotos, user, onExplore, onLogi
   ];
   return <>
     <section className="hero-section document-hero">
-      <div className="hero-copy"><Badge className="hero-kicker"><Sparkles /> Voluntariado que deja huella</Badge><h1>Conectamos personas que quieren ayudar con oportunidades de voluntariado.</h1><p>Descubrí, postuláte y construí una trayectoria que mejora tus próximas recomendaciones.</p><div className="hero-actions"><Button size="lg" onClick={onExplore}>Explorar oportunidades <ArrowRight /></Button><Button size="lg" variant="outline" onClick={onLogin}>Ingresar con Google</Button></div><span className="hero-note"><ShieldCheck /> Las oportunidades se pueden explorar sin iniciar sesión.</span></div>
+      <div className="hero-copy"><Badge className="hero-kicker"><Sparkles /> Voluntariado que deja huella</Badge><h1>Conectamos personas que quieren ayudar con oportunidades de voluntariado.</h1><p>Descubrí, postuláte y construí una trayectoria que mejora tus próximas recomendaciones.</p><div className="hero-actions"><Button size="lg" onClick={onExplore}>Explorar oportunidades <ArrowRight /></Button><Button size="lg" variant="outline" onClick={user ? onAccount : onLogin}>{user ? "Ir a mi espacio" : "Ingresar con Google"}</Button></div><span className="hero-note"><ShieldCheck /> {user ? `Sesión iniciada como ${user.displayName}.` : "Las oportunidades se pueden explorar sin iniciar sesión."}</span></div>
       <div className="landing-opportunity-showcase">{opportunities.slice(0, 3).map((item) => <article key={item.id}><div style={{ backgroundImage: `url(${item.imageUrl})` }} /><span>{item.category}</span>{item.simulated && <SimulatedSeal />}<h3>{item.title}</h3><p><MapPin /> {item.neighborhood}, {item.province}</p></article>)}</div>
     </section>
     <section className="how-section"><div className="section-heading"><span>Cómo funciona</span><h2>De la oportunidad a una nueva experiencia</h2><p>Elegí un paso para ver su recorrido animado.</p></div><div className="steps-row">{steps.map((step, index) => <Step key={step.title} number={String(index + 1)} title={step.title} text={step.text} onOpen={() => setGuide(index)} />)}</div></section>
