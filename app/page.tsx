@@ -22,12 +22,12 @@ import { DEMO_APPLICATIONS, DEMO_OPPORTUNITIES, DEMO_REVIEW_REPORTS, DEMO_REVIEW
 import {
   adminModerateReview, adminModerateReviewPhoto, adminUpdateOpportunity, adminUpdateUser, authErrorMessage, createApplication, createOpportunity, createReview, firebaseSignInWithGoogle, firebaseSignOut,
   observeAdminOpportunities, observeAdminReviewPhotos, observeAdminReviewReports, observeAdminReviews, observeAdminUsers, observeApplications, observeApprovedReviewPhotos, observeAuth, observeOpportunities, observeOrganizations,
-  observeOrganizationProfile, observeReviews, observeVolunteerProfile, recordCompletedExperience, reportReview, saveOrganizationProfile,
+  markNotificationRead, observeNotifications, observeOrganizationProfile, observeReviews, observeVolunteerProfile, recordCompletedExperience, reportReview, saveOrganizationProfile,
   saveVolunteerProfile, updateApplicationStatus, updateOpportunity,
 } from "@/lib/firebase-service";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { recommendOpportunities } from "@/lib/recommendations";
-import type { Application, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
+import type { AppNotification, Application, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
 
 type Screen = "landing" | "opportunities" | "volunteer" | "organization" | "admin";
 
@@ -127,6 +127,7 @@ export default function Home() {
   const [organizations, setOrganizations] = useState<Organization[]>([DEMO_ORGANIZATION]);
   const [organizationProfile, setOrganizationProfile] = useState<Organization | null>(null);
   const [organizationLoadedFor, setOrganizationLoadedFor] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   useEffect(() => {
     const saved = window.localStorage.getItem("red-cercana-theme");
     const preferred = saved === "dark" || saved === "light"
@@ -194,7 +195,7 @@ export default function Home() {
   useEffect(() => {
     if (!user || user.isDemo) return;
     const fail = (error: Error) => console.error("Sincronización privada", error);
-    const stops = [observeApplications(user, setApplications, fail)];
+    const stops = [observeApplications(user, setApplications, fail), observeNotifications(user.uid, setNotifications, fail)];
     if (user.role === "volunteer") {
       stops.push(observeVolunteerProfile(user.uid, (next) => {
         if (next) setProfile(next);
@@ -210,6 +211,12 @@ export default function Home() {
     }
     return () => stops.forEach((stop) => stop());
   }, [user]);
+
+  async function readNotification(item: AppNotification) {
+    if (item.read) return;
+    setNotifications((current) => current.map((notification) => notification.id === item.id ? { ...notification, read: true } : notification));
+    if (user && !user.isDemo) await markNotificationRead(item.id).catch(() => undefined);
+  }
 
   const recommended = useMemo(
     () => recommendOpportunities(opportunities, user?.role === "volunteer" ? profile : null),
@@ -293,7 +300,7 @@ export default function Home() {
       <div className="ambient-background" aria-hidden="true"><span className="ambient-orb ambient-orb-one" /><span className="ambient-orb ambient-orb-two" /><span className="ambient-orb ambient-orb-three" /></div>
       {/* Los avisos aparecen debajo del encabezado para no bloquear la navegación. */}
       <Toaster position="top-center" offset={90} richColors />
-      <SiteHeader screen={screen} user={user} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSwitchRole={() => setRoleOpen(true)} onSignOut={signOut} />
+      <SiteHeader screen={screen} user={user} notifications={notifications} onReadNotification={readNotification} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSwitchRole={() => setRoleOpen(true)} onSignOut={signOut} />
       <div className="screen-stage" key={screen}>
         {screen === "landing" && <Landing opportunities={opportunities} reviews={reviews} reviewPhotos={reviewPhotos} user={user} onExplore={() => navigate("opportunities")} onLogin={() => setAuthOpen(true)} />}
         {screen === "opportunities" && <OpportunityFeed opportunities={recommended} user={user} onOpen={setSelectedOpportunity} />}
@@ -325,15 +332,21 @@ function ProfileLoading() {
   return <section className="profile-loading" role="status"><span className="profile-loading-mark"><Sparkles /></span><h1>Preparando tu espacio…</h1><p>Estamos cargando tu perfil de forma segura.</p></section>;
 }
 
-function SiteHeader({ screen, user, onTheme, onNavigate, onLogin, onSwitchRole, onSignOut }: {
-  screen: Screen; user: SessionUser | null; onTheme: () => void; onNavigate: (screen: Screen) => void; onLogin: () => void; onSwitchRole: () => void; onSignOut: () => void;
+function SiteHeader({ screen, user, notifications, onReadNotification, onTheme, onNavigate, onLogin, onSwitchRole, onSignOut }: {
+  screen: Screen; user: SessionUser | null; notifications: AppNotification[]; onReadNotification: (item: AppNotification) => void; onTheme: () => void; onNavigate: (screen: Screen) => void; onLogin: () => void; onSwitchRole: () => void; onSignOut: () => void;
 }) {
   const account = user ? screenForRole(user.role) : "volunteer";
-  return <header className="site-header">
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const unread = notifications.filter((item) => !item.read).length;
+  return <><header className="site-header">
     <button className="brand" onClick={() => onNavigate("landing")}><span className="brand-mark"><HeartHandshake /></span><span>VoluntarIAndo<small>encontrá dónde ayudar</small></span></button>
     <nav className="main-nav" aria-label="Navegación principal"><button className={screen === "landing" ? "active" : ""} onClick={() => onNavigate("landing")}>Inicio</button><button className={screen === "opportunities" ? "active" : ""} onClick={() => onNavigate("opportunities")}>Oportunidades</button>{user && <button className={screen === account ? "active" : ""} onClick={() => onNavigate(account)}>Mi espacio</button>}</nav>
-    <div className="header-account"><Button className="theme-toggle" variant="ghost" size="icon" onClick={onTheme} aria-label="Cambiar tema de color"><Moon className="theme-icon-light" /><Sun className="theme-icon-dark" /></Button>{user ? <><button className="account-chip" onClick={onSwitchRole} title="Cambiar rol"><span>{user.displayName.charAt(0)}</span><b>{user.displayName}</b><UserCog /></button><Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Cerrar sesión"><LogOut /></Button></> : <Button className="soft-button" onClick={onLogin}>Ingresar</Button>}</div>
-  </header>;
+    <div className="header-account"><Button className="theme-toggle" variant="ghost" size="icon" onClick={onTheme} aria-label="Cambiar tema de color"><Moon className="theme-icon-light" /><Sun className="theme-icon-dark" /></Button>{user ? <><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`${unread} notificaciones sin leer`}><span aria-hidden="true">🔔</span>{unread > 0 && <b>{unread}</b>}</button><button className="account-chip" onClick={onSwitchRole} title="Cambiar rol"><span>{user.displayName.charAt(0)}</span><b>{user.displayName}</b><UserCog /></button><Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Cerrar sesión"><LogOut /></Button></> : <Button className="soft-button" onClick={onLogin}>Ingresar</Button>}</div>
+  </header><NotificationDialog notifications={notifications} open={notificationsOpen} onOpenChange={setNotificationsOpen} onRead={onReadNotification} /></>;
+}
+
+function NotificationDialog({ notifications, open, onOpenChange, onRead }: { notifications: AppNotification[]; open: boolean; onOpenChange: (open: boolean) => void; onRead: (item: AppNotification) => void }) {
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="notification-dialog"><DialogHeader><DialogTitle>Notificaciones</DialogTitle><DialogDescription>Solicitudes y respuestas de tus participaciones.</DialogDescription></DialogHeader><div className="notification-list">{notifications.map((item) => <button key={item.id} className={item.read ? "read" : ""} onClick={() => onRead(item)}><span>{item.type === "application_received" ? "👤" : item.type === "application_accepted" ? "✓" : "↪"}</span><div><b>{item.title}</b><p>{item.message}</p><small>{new Date(item.createdAt).toLocaleDateString("es-AR")}</small></div>{!item.read && <i />}</button>)}{!notifications.length && <p className="panel-note">Todavía no tenés notificaciones.</p>}</div><DialogFooter><Button onClick={() => onOpenChange(false)}>Cerrar</Button></DialogFooter></DialogContent></Dialog>;
 }
 
 function Landing({ opportunities, reviews, reviewPhotos, user, onExplore, onLogin }: { opportunities: Opportunity[]; reviews: Review[]; reviewPhotos: ReviewPhoto[]; user: SessionUser | null; onExplore: () => void; onLogin: () => void }) {

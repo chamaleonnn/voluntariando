@@ -85,6 +85,26 @@ service cloud.firestore {
       allow update: if isOrganizationAdmin(resource.data.organizationId) || isAdmin();
     }
 
+    match /notifications/{notificationId} {
+      allow read: if signedIn() && (resource.data.recipientId == request.auth.uid || isAdmin());
+      allow create: if signedIn()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.read == false
+        && (
+          (request.resource.data.type == "application_received"
+            && getAfter(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.userId == request.auth.uid
+            && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.organizationId)
+          ||
+          (request.resource.data.type in ["application_accepted", "application_rejected"]
+            && isOrganizationAdmin(getAfter(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.organizationId)
+            && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.userId)
+        );
+      allow update: if owns(resource.data.recipientId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read", "readAt"])
+        && request.resource.data.read == true;
+      allow delete: if false;
+    }
+
     match /matches/{matchId} {
       allow create: if isOrganizationAdmin(request.resource.data.organizationId);
       allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());

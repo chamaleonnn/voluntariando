@@ -25,7 +25,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "@/lib/firebase";
-import type { Application, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
+import type { AppNotification, Application, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
 
 function requireDb() {
   if (!db) throw new Error("Firebase todavía no está configurado.");
@@ -220,6 +220,20 @@ export function observeApplications(user: SessionUser, callback: (items: Applica
   const field = user.role === "volunteer" ? "userId" : "organizationId";
   const source = query(collection(db, "applications"), where(field, "==", user.uid), orderBy("createdAt", "desc"));
   return onSnapshot(source, (snapshot) => callback(snapshot.docs.map((item) => mapDoc<Application>(item))), onError);
+}
+
+export function observeNotifications(userId: string, callback: (items: AppNotification[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  const source = query(collection(db, "notifications"), where("recipientId", "==", userId));
+  return onSnapshot(source, (snapshot) => {
+    const items = snapshot.docs.map((item) => mapDoc<AppNotification>(item));
+    callback(items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+  }, onError);
+}
+
+export async function markNotificationRead(notificationId: string) {
+  const firestore = requireDb();
+  await updateDoc(doc(firestore, "notifications", notificationId), { read: true, readAt: serverTimestamp() });
 }
 
 export function observeVolunteerProfile(userId: string, callback: (profile: VolunteerProfile | null) => void) {
@@ -445,7 +459,8 @@ export async function adminUpdateOpportunity(
 export async function createApplication(opportunity: Opportunity, user: SessionUser, message = "Me interesa participar.") {
   const firestore = requireDb();
   const id = `${opportunity.id}_${user.uid}`;
-  await setDoc(doc(firestore, "applications", id), {
+  const batch = writeBatch(firestore);
+  batch.set(doc(firestore, "applications", id), {
     id,
     opportunityId: opportunity.id,
     opportunityTitle: opportunity.title,
@@ -457,6 +472,13 @@ export async function createApplication(opportunity: Opportunity, user: SessionU
     status: "pending",
     createdAt: serverTimestamp(),
   });
+  batch.set(doc(firestore, "notifications", `application_received_${id}`), {
+    recipientId: opportunity.organizationId, actorId: user.uid, applicationId: id,
+    type: "application_received", title: "Nueva persona interesada",
+    message: `${user.displayName} quiere participar en ${opportunity.title}.`, read: false,
+    createdAt: serverTimestamp(),
+  });
+  await batch.commit();
   return id;
 }
 
@@ -474,6 +496,15 @@ export async function updateApplicationStatus(application: Application, status: 
   const firestore = requireDb();
   const batch = writeBatch(firestore);
   batch.update(doc(firestore, "applications", application.id), { status, updatedAt: serverTimestamp() });
+  if (status === "accepted" || status === "rejected") {
+    batch.set(doc(firestore, "notifications", `application_${status}_${application.id}`), {
+      recipientId: application.userId, actorId: application.organizationId, applicationId: application.id,
+      type: status === "accepted" ? "application_accepted" : "application_rejected",
+      title: status === "accepted" ? "¡Tu participación fue aceptada!" : "Respuesta de la organización",
+      message: status === "accepted" ? `Confirmaron tu lugar en ${application.opportunityTitle}.` : `La solicitud para ${application.opportunityTitle} no fue aceptada esta vez.`,
+      read: false, createdAt: serverTimestamp(),
+    });
+  }
   if (status === "accepted") {
     batch.set(doc(firestore, "matches", `${application.opportunityId}_${application.userId}`), {
       opportunityId: application.opportunityId,

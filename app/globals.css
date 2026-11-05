@@ -69,9 +69,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .main-nav button:hover, .main-nav button.active { color: #176b57; }
 .main-nav button.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: #e9a952; }
 .header-account { justify-self: end; display: flex; align-items: center; gap: 8px; }
-.notification-button { width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: #6b7b75; cursor: pointer; }
+.notification-button { position: relative; width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: #6b7b75; cursor: pointer; }
 .notification-button:hover { background: #f0f5f1; }
 .notification-button svg { width: 19px; }
+.notification-button > span { font-size: 1rem; filter: grayscale(1); }
+.notification-button > b { position: absolute; right: -2px; top: -2px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--card); border-radius: 999px; background: var(--destructive); color: white; font-size: .55rem; }
 .account-chip { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 5px; border: 1px solid #dfe7e1; border-radius: 999px; background: white; color: #31584e; cursor: pointer; }
 .account-chip > span { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 50%; background: #e9dbfa; color: #674d86; font-weight: 850; }
 .account-chip b { max-width: 120px; overflow: hidden; font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -451,6 +453,16 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .social-links a { display: inline-flex; align-items: center; gap: 5px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 999px; color: var(--foreground); font-size: .65rem; font-weight: 750; text-decoration: none; }
 .social-links a:hover { background: var(--muted); }
 .social-links svg { width: 14px; height: 14px; }
+.notification-dialog { max-width: 520px; }
+.notification-list { display: grid; gap: 8px; max-height: 55vh; overflow: auto; }
+.notification-list > button { position: relative; width: 100%; display: grid; grid-template-columns: 34px 1fr auto; align-items: start; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: color-mix(in srgb, var(--primary), transparent 94%); color: var(--foreground); text-align: left; cursor: pointer; }
+.notification-list > button.read { background: transparent; opacity: .72; }
+.notification-list > button > span { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: var(--secondary); }
+.notification-list > button > div { display: grid; gap: 3px; }
+.notification-list b { font-size: .75rem; }
+.notification-list p { margin: 0; color: var(--muted-foreground); font-size: .68rem; line-height: 1.4; }
+.notification-list small { color: var(--muted-foreground); font-size: .58rem; }
+.notification-list i { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--primary); }
 
 /* Vía: camaleón mecha que combina métricas existentes con preguntas breves. */
 .guide-assistant { position: fixed; right: 24px; bottom: 24px; z-index: 80; display: grid; justify-items: end; gap: 10px; }

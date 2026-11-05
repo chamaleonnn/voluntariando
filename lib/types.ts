@@ -112,6 +112,18 @@ export type ReviewPhoto = {
   moderatedBy?: string;
 };
 
+export type AppNotification = {
+  id: string;
+  recipientId: string;
+  actorId: string;
+  applicationId: string;
+  type: "application_received" | "application_accepted" | "application_rejected";
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+};
+
 export type Organization = {
   id: string;
   ownerId: string;
