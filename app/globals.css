@@ -74,6 +74,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .notification-button svg { width: 19px; }
 .notification-button > span { font-size: 1rem; filter: grayscale(1); }
 .notification-button > b { position: absolute; right: -2px; top: -2px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--card); border-radius: 999px; background: var(--destructive); color: white; font-size: .55rem; }
+.tutorial-button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 50%; background: transparent; color: var(--muted-foreground); font-weight: 850; cursor: pointer; }
+.tutorial-button:hover { background: var(--muted); color: var(--foreground); }
 .account-chip { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 5px; border: 1px solid #dfe7e1; border-radius: 999px; background: white; color: #31584e; cursor: pointer; }
 .account-chip > span { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 50%; background: #e9dbfa; color: #674d86; font-weight: 850; }
 .account-chip b { max-width: 120px; overflow: hidden; font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -428,6 +430,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .notification-list p { margin: 0; color: var(--muted-foreground); font-size: .68rem; line-height: 1.4; }
 .notification-list small { color: var(--muted-foreground); font-size: .58rem; }
 .notification-list i { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--primary); }
+.tutorial-dialog { max-width: 560px !important; }
+.tutorial-progress { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.tutorial-progress i { height: 5px; border-radius: 999px; background: var(--muted); }
+.tutorial-progress i.active { background: var(--primary); }
+.tutorial-step { color: var(--primary); font-size: .65rem; font-weight: 850; text-transform: uppercase; }
+.tutorial-illustration { min-height: 150px; display: grid; place-items: center; position: relative; border-radius: 22px; background: radial-gradient(circle, color-mix(in srgb, var(--primary), transparent 78%), transparent 60%), var(--muted); color: var(--primary); }
+.tutorial-illustration > svg:first-child { width: 64px; height: 64px; }
+.tutorial-illustration > svg:last-child { position: absolute; right: 28%; top: 22%; width: 22px; }
 .volunteer-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .volunteer-card-grid article { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 15px; background: color-mix(in srgb, var(--card), transparent 8%); }
 .volunteer-card-grid article > div { min-width: 0; display: grid; gap: 2px; }

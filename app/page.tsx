@@ -129,6 +129,8 @@ export default function Home() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [volunteers, setVolunteers] = useState<VolunteerProfile[]>(DEMO_VOLUNTEERS);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [viaPromptToken, setViaPromptToken] = useState(0);
   useEffect(() => {
     const saved = window.localStorage.getItem("red-cercana-theme");
     const preferred = saved === "dark" || saved === "light"
@@ -297,12 +299,30 @@ export default function Home() {
     && organizationLoadedFor === user.uid && organizationProfile && !organizationProfileIsComplete(organizationProfile),
   );
 
+  useEffect(() => {
+    if (!user || user.isDemo || user.role === "admin") return;
+    const ready = user.role === "volunteer"
+      ? profileLoadedFor === user.uid && volunteerProfileIsComplete(profile)
+      : organizationLoadedFor === user.uid && Boolean(organizationProfile && organizationProfileIsComplete(organizationProfile));
+    if (!ready) return;
+    const key = `voluntariando-tutorial-${user.uid}-${user.role}-v1`;
+    if (window.localStorage.getItem(key)) return;
+    const timer = window.setTimeout(() => setTutorialOpen(true), 0);
+    return () => window.clearTimeout(timer);
+  }, [user, profile, profileLoadedFor, organizationProfile, organizationLoadedFor]);
+
+  function finishTutorial(showVia: boolean) {
+    if (user && !user.isDemo) window.localStorage.setItem(`voluntariando-tutorial-${user.uid}-${user.role}-v1`, "done");
+    setTutorialOpen(false);
+    if (showVia && user?.role === "volunteer") setViaPromptToken((current) => current + 1);
+  }
+
   return (
     <main className="site-shell">
       <div className="ambient-background" aria-hidden="true"><span className="ambient-orb ambient-orb-one" /><span className="ambient-orb ambient-orb-two" /><span className="ambient-orb ambient-orb-three" /></div>
       {/* Los avisos aparecen debajo del encabezado para no bloquear la navegación. */}
       <Toaster position="top-center" offset={90} richColors />
-      <SiteHeader screen={screen} user={user} notifications={notifications} onReadNotification={readNotification} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSwitchRole={() => setRoleOpen(true)} onSignOut={signOut} />
+      <SiteHeader screen={screen} user={user} notifications={notifications} onReadNotification={readNotification} onTutorial={() => setTutorialOpen(true)} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSwitchRole={() => setRoleOpen(true)} onSignOut={signOut} />
       <div className="screen-stage" key={screen}>
         {screen === "landing" && <Landing opportunities={opportunities} reviews={reviews} reviewPhotos={reviewPhotos} user={user} onExplore={() => navigate("opportunities")} onLogin={() => setAuthOpen(true)} />}
         {screen === "opportunities" && <OpportunityFeed opportunities={recommended} user={user} onOpen={setSelectedOpportunity} />}
@@ -320,12 +340,13 @@ export default function Home() {
         )}
         {screen === "admin" && user?.role === "admin" && <AdminPanel user={user} opportunities={opportunities} reviews={reviews} />}
       </div>
-      <GuideAssistant user={user} profile={profile} opportunities={recommended} onOpenOpportunity={setSelectedOpportunity} />
+      <GuideAssistant user={user} profile={profile} opportunities={recommended} promptToken={viaPromptToken} onOpenOpportunity={setSelectedOpportunity} />
       <OpportunityDialog opportunity={selectedOpportunity} user={user} applications={applications} open={Boolean(selectedOpportunity)} onOpenChange={(open) => !open && setSelectedOpportunity(null)} onApply={apply} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onUser={loginAs} />
       <RoleSwitcher open={roleOpen} onOpenChange={setRoleOpen} onUser={loginAs} />
       {user?.role === "volunteer" && !user.isDemo && <VolunteerProfileDialog user={user} profile={profile} open={volunteerOnboarding} onOpenChange={() => undefined} onSaved={setProfile} mandatory />}
       {user?.role === "organization" && !user.isDemo && <OrganizationProfileDialog user={user} organization={organization} open={organizationOnboarding} onOpenChange={() => undefined} onSaved={(next) => { setOrganizationProfile(next); setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next]); }} mandatory />}
+      {user && user.role !== "admin" && <WelcomeTutorial role={user.role} open={tutorialOpen} onOpenChange={setTutorialOpen} onFinish={finishTutorial} />}
     </main>
   );
 }
@@ -334,8 +355,8 @@ function ProfileLoading() {
   return <section className="profile-loading" role="status"><span className="profile-loading-mark"><Sparkles /></span><h1>Preparando tu espacio…</h1><p>Estamos cargando tu perfil de forma segura.</p></section>;
 }
 
-function SiteHeader({ screen, user, notifications, onReadNotification, onTheme, onNavigate, onLogin, onSwitchRole, onSignOut }: {
-  screen: Screen; user: SessionUser | null; notifications: AppNotification[]; onReadNotification: (item: AppNotification) => void; onTheme: () => void; onNavigate: (screen: Screen) => void; onLogin: () => void; onSwitchRole: () => void; onSignOut: () => void;
+function SiteHeader({ screen, user, notifications, onReadNotification, onTutorial, onTheme, onNavigate, onLogin, onSwitchRole, onSignOut }: {
+  screen: Screen; user: SessionUser | null; notifications: AppNotification[]; onReadNotification: (item: AppNotification) => void; onTutorial: () => void; onTheme: () => void; onNavigate: (screen: Screen) => void; onLogin: () => void; onSwitchRole: () => void; onSignOut: () => void;
 }) {
   const account = user ? screenForRole(user.role) : "volunteer";
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -343,12 +364,33 @@ function SiteHeader({ screen, user, notifications, onReadNotification, onTheme, 
   return <><header className="site-header">
     <button className="brand" onClick={() => onNavigate("landing")}><span className="brand-mark"><HeartHandshake /></span><span>VoluntarIAndo<small>encontrá dónde ayudar</small></span></button>
     <nav className="main-nav" aria-label="Navegación principal"><button className={screen === "landing" ? "active" : ""} onClick={() => onNavigate("landing")}>Inicio</button><button className={screen === "opportunities" ? "active" : ""} onClick={() => onNavigate("opportunities")}>Oportunidades</button>{user && <button className={screen === account ? "active" : ""} onClick={() => onNavigate(account)}>Mi espacio</button>}</nav>
-    <div className="header-account"><Button className="theme-toggle" variant="ghost" size="icon" onClick={onTheme} aria-label="Cambiar tema de color"><Moon className="theme-icon-light" /><Sun className="theme-icon-dark" /></Button>{user ? <><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`${unread} notificaciones sin leer`}><span aria-hidden="true">🔔</span>{unread > 0 && <b>{unread}</b>}</button><button className="account-chip" onClick={onSwitchRole} title="Cambiar rol"><span>{user.displayName.charAt(0)}</span><b>{user.displayName}</b><UserCog /></button><Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Cerrar sesión"><LogOut /></Button></> : <Button className="soft-button" onClick={onLogin}>Ingresar</Button>}</div>
+    <div className="header-account"><Button className="theme-toggle" variant="ghost" size="icon" onClick={onTheme} aria-label="Cambiar tema de color"><Moon className="theme-icon-light" /><Sun className="theme-icon-dark" /></Button>{user ? <>{user.role !== "admin" && <button className="tutorial-button" onClick={onTutorial} aria-label="Abrir tutorial">?</button>}<button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`${unread} notificaciones sin leer`}><span aria-hidden="true">🔔</span>{unread > 0 && <b>{unread}</b>}</button><button className="account-chip" onClick={onSwitchRole} title="Cambiar rol"><span>{user.displayName.charAt(0)}</span><b>{user.displayName}</b><UserCog /></button><Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Cerrar sesión"><LogOut /></Button></> : <Button className="soft-button" onClick={onLogin}>Ingresar</Button>}</div>
   </header><NotificationDialog notifications={notifications} open={notificationsOpen} onOpenChange={setNotificationsOpen} onRead={onReadNotification} /></>;
 }
 
 function NotificationDialog({ notifications, open, onOpenChange, onRead }: { notifications: AppNotification[]; open: boolean; onOpenChange: (open: boolean) => void; onRead: (item: AppNotification) => void }) {
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="notification-dialog"><DialogHeader><DialogTitle>Notificaciones</DialogTitle><DialogDescription>Solicitudes y respuestas de tus participaciones.</DialogDescription></DialogHeader><div className="notification-list">{notifications.map((item) => <button key={item.id} className={item.read ? "read" : ""} onClick={() => onRead(item)}><span>{item.type === "application_received" ? "👤" : item.type === "application_accepted" ? "✓" : "↪"}</span><div><b>{item.title}</b><p>{item.message}</p><small>{new Date(item.createdAt).toLocaleDateString("es-AR")}</small></div>{!item.read && <i />}</button>)}{!notifications.length && <p className="panel-note">Todavía no tenés notificaciones.</p>}</div><DialogFooter><Button onClick={() => onOpenChange(false)}>Cerrar</Button></DialogFooter></DialogContent></Dialog>;
+}
+
+function WelcomeTutorial({ role, open, onOpenChange, onFinish }: { role: "volunteer" | "organization"; open: boolean; onOpenChange: (open: boolean) => void; onFinish: (showVia: boolean) => void }) {
+  const [step, setStep] = useState(0);
+  const steps = role === "volunteer" ? [
+    { title: "Completá tu perfil", text: "Intereses, habilidades, disponibilidad y ubicación permiten calcular recomendaciones útiles." },
+    { title: "Explorá oportunidades", text: "Usá la búsqueda, los filtros por provincia y modalidad o la vista de mapa." },
+    { title: "Entendé la compatibilidad", text: "Cada porcentaje explica habilidades, intereses, disponibilidad, ubicación y experiencias relacionadas." },
+    { title: "Mostrá interés", text: "La organización recibirá tu solicitud y podrás seguir su estado desde Mi espacio." },
+    { title: "Construí tu trayectoria", text: "Cuando una experiencia se completa, sus tareas y habilidades verificadas mejoran futuras recomendaciones." },
+  ] : [
+    { title: "Configurá la organización", text: "Completá su descripción, ubicación y datos de contacto." },
+    { title: "Publicá oportunidades", text: "Detallá tareas, habilidades, disponibilidad, modalidad y ubicación." },
+    { title: "Consultá voluntarios", text: "Revisá perfiles visibles y las habilidades declaradas de cada persona." },
+    { title: "Enviá invitaciones", text: "Elegí una oportunidad y enviá una propuesta personalizada. El match se crea cuando la aceptan." },
+    { title: "Gestioná participaciones", text: "Confirmá solicitudes, marcá experiencias realizadas y registrá tareas y habilidades demostradas." },
+  ];
+  function changeOpen(nextOpen: boolean) { if (!nextOpen) setStep(0); onOpenChange(nextOpen); }
+  const current = steps[step];
+  const last = step === steps.length - 1;
+  return <Dialog open={open} onOpenChange={changeOpen}><DialogContent className="tutorial-dialog" showCloseButton={false}><div className="tutorial-progress" aria-label={`Paso ${step + 1} de ${steps.length}`}>{steps.map((item, index) => <i key={item.title} className={index <= step ? "active" : ""} />)}</div><span className="tutorial-step">Paso {step + 1} de {steps.length}</span><DialogHeader><DialogTitle>{current.title}</DialogTitle><DialogDescription>{current.text}</DialogDescription></DialogHeader><div className="tutorial-illustration" aria-hidden="true">{role === "volunteer" ? <UserRound /> : <Building2 />}<Sparkles /></div><DialogFooter><Button variant="ghost" onClick={() => onFinish(false)}>Omitir tutorial</Button>{step > 0 && <Button variant="outline" onClick={() => setStep((value) => value - 1)}>Anterior</Button>}<Button onClick={() => last ? onFinish(role === "volunteer") : setStep((value) => value + 1)}>{last ? role === "volunteer" ? "Finalizar y abrir Vía" : "Finalizar" : "Siguiente"}</Button></DialogFooter></DialogContent></Dialog>;
 }
 
 function Landing({ opportunities, reviews, reviewPhotos, user, onExplore, onLogin }: { opportunities: Opportunity[]; reviews: Review[]; reviewPhotos: ReviewPhoto[]; user: SessionUser | null; onExplore: () => void; onLogin: () => void }) {
@@ -597,7 +639,7 @@ function AdminReviewDialog({ actor, review, report, open, onOpenChange, onSaved 
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="create-dialog"><DialogHeader><DialogTitle>Revisar denuncia</DialogTitle><DialogDescription>{review.authorName} · {review.rating} estrellas · {review.opportunityTitle}</DialogDescription></DialogHeader><blockquote className="review-moderation-text">“{review.comment}”</blockquote><p className="match-note">Motivo denunciado: {report.reason}</p><form className="create-form" onSubmit={submit}><label>Decisión<Select name="status" defaultValue="published"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="published">Mantener publicada</SelectItem><SelectItem value="hidden">Ocultar reseña</SelectItem></SelectContent></Select></label><label>Motivo administrativo<Input name="reason" defaultValue="Contenido revisado por administración" required /></label><DialogFooter className="full"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={loading}>{loading ? "Guardando…" : "Resolver denuncia"}</Button></DialogFooter></form></DialogContent></Dialog>;
 }
 
-function GuideAssistant({ user, profile, opportunities, onOpenOpportunity }: { user: SessionUser | null; profile: VolunteerProfile; opportunities: Opportunity[]; onOpenOpportunity: (item: Opportunity) => void }) {
+function GuideAssistant({ user, profile, opportunities, promptToken, onOpenOpportunity }: { user: SessionUser | null; profile: VolunteerProfile; opportunities: Opportunity[]; promptToken: number; onOpenOpportunity: (item: Opportunity) => void }) {
   const [open, setOpen] = useState(false);
   const [stage, setStage] = useState<"invite" | "questions" | "result">("invite");
   const [goal, setGoal] = useState("aprender");
@@ -613,6 +655,11 @@ function GuideAssistant({ user, profile, opportunities, onOpenOpportunity }: { u
     }, 10000);
     return () => window.clearTimeout(timer);
   }, []);
+  useEffect(() => {
+    if (!promptToken) return;
+    const timer = window.setTimeout(() => { setStage("invite"); setOpen(true); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [promptToken]);
 
   const normalizedCause = cause.toLocaleLowerCase("es");
   const matchesFormat = (item: Opportunity) => format === "cualquiera" || item.modality?.toLocaleLowerCase("es") === format;
