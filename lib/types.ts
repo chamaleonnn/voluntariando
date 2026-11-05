@@ -151,6 +151,9 @@ export type Organization = {
   location?: string;
   contact?: string;
   status: "pending" | "verified" | "suspended";
+  moderationReason?: string;
+  moderatedAt?: string;
+  moderatedBy?: string;
 };
 
 // Perfil del voluntario utilizado para calcular y explicar recomendaciones.

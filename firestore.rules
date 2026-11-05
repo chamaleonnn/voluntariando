@@ -14,6 +14,10 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/organizationMembers/$(organizationId + "_" + request.auth.uid))
         && get(/databases/$(database)/documents/organizationMembers/$(organizationId + "_" + request.auth.uid)).data.role == "owner";
     }
+    function isVerifiedOrganization(organizationId) {
+      return exists(/databases/$(database)/documents/organizations/$(organizationId))
+        && get(/databases/$(database)/documents/organizations/$(organizationId)).data.status == "verified";
+    }
     function publicOpportunity(data) { return data.status == "published" && data.visibility == "public"; }
 
     match /users/{userId} {
@@ -57,7 +61,7 @@ service cloud.firestore {
 
     match /organizations/{organizationId} {
       allow read: if resource.data.status == "verified" || owns(resource.data.ownerId) || isOrganizationAdmin(organizationId) || isAdmin();
-      allow create: if owns(organizationId) && request.resource.data.ownerId == request.auth.uid && request.resource.data.status == "verified";
+      allow create: if owns(organizationId) && request.resource.data.ownerId == request.auth.uid && request.resource.data.status == "pending";
       allow update: if isAdmin() || (owns(resource.data.ownerId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         "name", "province", "location", "contact", "description", "updatedAt"
       ]));
@@ -72,8 +76,10 @@ service cloud.firestore {
 
     match /opportunities/{opportunityId} {
       allow read: if publicOpportunity(resource.data) || isOrganizationAdmin(resource.data.organizationId) || isAdmin();
-      allow create: if isOrganizationAdmin(request.resource.data.organizationId) || isAdmin();
-      allow update: if isOrganizationAdmin(resource.data.organizationId) || isAdmin();
+      allow create: if (isOrganizationAdmin(request.resource.data.organizationId)
+        && isVerifiedOrganization(request.resource.data.organizationId)) || isAdmin();
+      allow update: if (isOrganizationAdmin(resource.data.organizationId)
+        && isVerifiedOrganization(resource.data.organizationId)) || isAdmin();
     }
 
     match /applications/{applicationId} {

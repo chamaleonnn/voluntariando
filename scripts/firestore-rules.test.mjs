@@ -46,6 +46,11 @@ before(async () => {
         role: "volunteer",
         status: "active",
       }),
+      setDoc(doc(database, "users/admin"), {
+        email: "admin@example.com",
+        role: "admin",
+        status: "active",
+      }),
       setDoc(doc(database, "organizationMembers/org_org"), {
         organizationId: "org",
         userId: "org",
@@ -55,6 +60,21 @@ before(async () => {
         ownerId: "org",
         name: "Merendero de prueba",
         status: "verified",
+      }),
+      setDoc(doc(database, "organizations/pending-org"), {
+        ownerId: "pending-org",
+        name: "Organización pendiente",
+        status: "pending",
+      }),
+      setDoc(doc(database, "organizationMembers/pending-org_pending-org"), {
+        organizationId: "pending-org",
+        userId: "pending-org",
+        role: "owner",
+      }),
+      setDoc(doc(database, "users/pending-org"), {
+        email: "pendiente@example.com",
+        role: "organization",
+        status: "active",
       }),
       setDoc(doc(database, "opportunities/opp"), {
         organizationId: "org",
@@ -157,6 +177,35 @@ test("el voluntario no puede acreditarse habilidades por su cuenta", async () =>
 
   await assertFails(updateDoc(profile, {
     "verifiedSkills.Liderazgo": 99,
+    updatedAt: serverTimestamp(),
+  }));
+});
+
+test("una organización pendiente no puede publicar hasta ser validada", async () => {
+  const organization = testEnvironment.authenticatedContext("pending-org", {
+    email: "pendiente@example.com",
+  });
+  const opportunity = doc(organization.firestore(), "opportunities/pending-opp");
+
+  await assertFails(setDoc(opportunity, {
+    organizationId: "pending-org",
+    title: "Actividad todavía no validada",
+    status: "published",
+    visibility: "public",
+  }));
+});
+
+test("administración puede validar una organización pendiente", async () => {
+  const admin = testEnvironment.authenticatedContext("admin", {
+    email: "admin@example.com",
+  });
+  const organization = doc(admin.firestore(), "organizations/pending-org");
+
+  await assertSucceeds(updateDoc(organization, {
+    status: "verified",
+    moderationReason: "Datos revisados",
+    moderatedBy: "admin",
+    moderatedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }));
 });

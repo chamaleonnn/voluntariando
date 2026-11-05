@@ -19,8 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/sonner";
 import { DEMO_APPLICATIONS, DEMO_OPPORTUNITIES, DEMO_REVIEW_REPORTS, DEMO_REVIEWS, DEMO_VOLUNTEERS } from "@/lib/demo-data";
 import {
-  adminModerateReview, adminModerateReviewPhoto, adminUpdateOpportunity, adminUpdateUser, authErrorMessage, createApplication, createInvitation, createOpportunity, createReview, firebaseSignInWithGoogle, firebaseSignOut,
-  observeAdminOpportunities, observeAdminReviewPhotos, observeAdminReviewReports, observeAdminReviews, observeAdminUsers, observeApplications, observeApprovedReviewPhotos, observeAuth, observeOpportunities, observeOrganizations,
+  adminModerateReview, adminModerateReviewPhoto, adminUpdateOpportunity, adminUpdateOrganization, adminUpdateUser, authErrorMessage, createApplication, createInvitation, createOpportunity, createReview, firebaseSignInWithGoogle, firebaseSignOut,
+  observeAdminOpportunities, observeAdminOrganizations, observeAdminReviewPhotos, observeAdminReviewReports, observeAdminReviews, observeAdminUsers, observeApplications, observeApprovedReviewPhotos, observeAuth, observeOpportunities, observeOrganizations,
   markNotificationRead, observeInvitations, observeNotifications, observeOrganizationProfile, observeReviews, observeVisibleVolunteerProfiles, observeVolunteerProfile, recordCompletedExperience, reportReview, saveOrganizationProfile,
   saveVolunteerProfile, updateApplicationStatus, updateInvitationStatus, updateOpportunity,
 } from "@/lib/firebase-service";
@@ -516,11 +516,13 @@ function AdminPanel({ user, opportunities, reviews }: { user: SessionUser; oppor
   const demoUsers = Object.values(DEMO_USERS) as PlatformUser[];
   const [managedUsers, setManagedUsers] = useState<PlatformUser[]>(demoUsers);
   const [managedOpportunities, setManagedOpportunities] = useState<Opportunity[]>(opportunities);
+  const [managedOrganizations, setManagedOrganizations] = useState<Organization[]>([DEMO_ORGANIZATION]);
   const [managedReviews, setManagedReviews] = useState<Review[]>(reviews);
   const [reviewReports, setReviewReports] = useState<ReviewReport[]>(DEMO_REVIEW_REPORTS);
   const [reviewPhotos, setReviewPhotos] = useState<ReviewPhoto[]>([]);
   const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
+  const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
   const [selectedReport, setSelectedReport] = useState<ReviewReport | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<ReviewPhoto | null>(null);
 
@@ -530,6 +532,7 @@ function AdminPanel({ user, opportunities, reviews }: { user: SessionUser; oppor
     const stops = [
       observeAdminUsers(setManagedUsers, fail),
       observeAdminOpportunities(setManagedOpportunities, fail),
+      observeAdminOrganizations(setManagedOrganizations, fail),
       observeAdminReviews(setManagedReviews, fail),
       observeAdminReviewReports(setReviewReports, fail),
       observeAdminReviewPhotos(setReviewPhotos, fail),
@@ -538,8 +541,9 @@ function AdminPanel({ user, opportunities, reviews }: { user: SessionUser; oppor
   }, [user.isDemo]);
 
   return <Dashboard title="Administración" description="Supervisión general, moderación y corrección de la plataforma." icon={<Shield />} action={<Badge variant="secondary">{user.isDemo ? "Modo demostración" : "Firebase activo"}</Badge>}>
-    <div className="stats-grid"><Stat label="Usuarios" value={managedUsers.length} detail="cuentas registradas" /><Stat label="Suspendidos" value={managedUsers.filter((item) => item.status === "suspended").length} detail="cuentas restringidas" /><Stat label="Oportunidades" value={managedOpportunities.length} detail="totales" /><Stat label="Por revisar" value={reviewReports.filter((item) => item.status === "pending").length + reviewPhotos.filter((item) => item.status === "pending").length} detail="denuncias y fotos" /></div>
+    <div className="stats-grid"><Stat label="Usuarios" value={managedUsers.length} detail="cuentas registradas" /><Stat label="Organizaciones" value={managedOrganizations.filter((item) => item.status === "pending").length} detail="pendientes de validar" /><Stat label="Oportunidades" value={managedOpportunities.length} detail="totales" /><Stat label="Por revisar" value={reviewReports.filter((item) => item.status === "pending").length + reviewPhotos.filter((item) => item.status === "pending").length} detail="denuncias y fotos" /></div>
     <div className="dashboard-grid admin-grid">
+      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Validación</span><h2>Organizaciones</h2></div></div><div className="admin-list">{managedOrganizations.map((item) => <div key={item.id}><span className={`admin-icon ${item.status === "verified" ? "green" : "amber"}`}><Building2 /></span><div><b>{item.name}</b><p>{item.email} · {item.province} · {item.status === "verified" ? "validada" : item.status === "suspended" ? "suspendida" : "pendiente"}</p>{item.moderationReason && <small>Último motivo: {item.moderationReason}</small>}</div><Button size="sm" variant="outline" onClick={() => setSelectedOrganization(item)}><ShieldCheck /> Revisar</Button></div>)}</div></section>
       <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Control de usuarios</span><h2>Perfiles, roles y contacto</h2></div></div><div className="admin-list">{managedUsers.map((item) => <div key={item.uid}><span className="admin-icon green">{item.role === "organization" ? <Building2 /> : item.role === "admin" ? <Shield /> : <UserRound />}</span><div><b>{item.displayName}</b><p>{item.email} · {item.role} · {item.status === "suspended" ? "suspendido" : "activo"}</p>{item.suspensionReason && <small>Motivo: {item.suspensionReason}</small>}</div><span className="inline-actions"><Badge variant={item.status === "suspended" ? "destructive" : "secondary"}>{item.status === "suspended" ? "Suspendido" : "Activo"}</Badge><Button size="sm" variant="outline" onClick={() => setSelectedUser(item)} disabled={item.uid === user.uid}><Settings2 /> Gestionar</Button></span></div>)}</div></section>
       <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Moderación</span><h2>Oportunidades</h2></div></div><div className="admin-list">{managedOpportunities.map((item) => <div key={item.id}><span className={`admin-icon ${item.status === "published" ? "green" : "amber"}`}>{item.status === "published" ? <ShieldCheck /> : <Ban />}</span><div><b>{item.title}</b><p>{item.organization} · {item.province} · {item.status === "published" ? "visible" : "oculta"}</p>{item.moderationReason && <small>Último motivo: {item.moderationReason}</small>}</div><Button size="sm" variant="outline" onClick={() => setSelectedOpportunity(item)}><Pencil /> Corregir</Button></div>)}</div></section>
       <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Reseñas</span><h2>Denuncias pendientes</h2></div></div><div className="admin-list">{reviewReports.filter((item) => item.status === "pending").map((report) => { const review = managedReviews.find((item) => item.id === report.reviewId); return <div key={report.id}><span className="admin-icon amber"><Ban /></span><div><b>{review?.opportunityTitle ?? "Reseña"}</b><p>{report.reason}</p><small>{review?.authorName} · {review?.rating ?? 0} estrellas</small></div><Button size="sm" variant="outline" onClick={() => setSelectedReport(report)}>Revisar</Button></div>; })}{!reviewReports.some((item) => item.status === "pending") && <p className="panel-note">No hay denuncias pendientes.</p>}</div></section>
@@ -548,9 +552,38 @@ function AdminPanel({ user, opportunities, reviews }: { user: SessionUser; oppor
     </div>
     <AdminUserDialog key={selectedUser?.uid ?? "no-user"} actor={user} target={selectedUser} open={Boolean(selectedUser)} onOpenChange={(open) => !open && setSelectedUser(null)} onSaved={(next) => setManagedUsers((items) => items.map((item) => item.uid === next.uid ? next : item))} />
     <AdminOpportunityDialog key={selectedOpportunity?.id ?? "no-opportunity"} actor={user} target={selectedOpportunity} open={Boolean(selectedOpportunity)} onOpenChange={(open) => !open && setSelectedOpportunity(null)} onSaved={(next) => setManagedOpportunities((items) => items.map((item) => item.id === next.id ? next : item))} />
+    <AdminOrganizationDialog key={selectedOrganization?.id ?? "no-organization"} actor={user} target={selectedOrganization} open={Boolean(selectedOrganization)} onOpenChange={(open) => !open && setSelectedOrganization(null)} onSaved={(next) => setManagedOrganizations((items) => items.map((item) => item.id === next.id ? next : item))} />
     <AdminReviewDialog actor={user} report={selectedReport} review={managedReviews.find((item) => item.id === selectedReport?.reviewId) ?? null} open={Boolean(selectedReport)} onOpenChange={(open) => !open && setSelectedReport(null)} onSaved={(nextReview, nextReport) => { setManagedReviews((items) => items.map((item) => item.id === nextReview.id ? nextReview : item)); setReviewReports((items) => items.map((item) => item.id === nextReport.id ? nextReport : item)); }} />
     <AdminReviewPhotoDialog actor={user} photo={selectedPhoto} review={managedReviews.find((item) => item.id === selectedPhoto?.reviewId) ?? null} open={Boolean(selectedPhoto)} onOpenChange={(open) => !open && setSelectedPhoto(null)} onSaved={(next) => setReviewPhotos((items) => items.map((item) => item.id === next.id ? next : item))} />
   </Dashboard>;
+}
+
+function AdminOrganizationDialog({ actor, target, open, onOpenChange, onSaved }: { actor: SessionUser; target: Organization | null; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (organization: Organization) => void }) {
+  const [loading, setLoading] = useState(false);
+  if (!target) return null;
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const status = String(form.get("status")) as Organization["status"];
+    const reason = String(form.get("reason")).trim();
+    if (!reason) return toast.error("Indicá el motivo de la decisión.");
+    setLoading(true);
+    try {
+      const next = actor.isDemo
+        ? { ...target!, status, moderationReason: reason, moderatedBy: actor.uid, moderatedAt: new Date().toISOString() }
+        : await adminUpdateOrganization(actor, target!, status, reason);
+      onSaved(next);
+      onOpenChange(false);
+      toast.success(status === "verified" ? "Organización validada" : "Estado de la organización actualizado");
+    } catch (error) {
+      toast.error("No se pudo actualizar", { description: error instanceof Error ? error.message : "Intentá nuevamente." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="create-dialog"><DialogHeader><DialogTitle>Validar organización</DialogTitle><DialogDescription>{target.name} · {target.email}</DialogDescription></DialogHeader><div className="panel-note"><b>Datos declarados</b><br />{target.description || "Sin descripción todavía."}<br />{target.location ?? target.province} · Contacto: {target.contact ?? target.email}</div><form className="create-form" onSubmit={submit}><label>Decisión<Select name="status" defaultValue={target.status}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending">Mantener pendiente</SelectItem><SelectItem value="verified">Validar</SelectItem><SelectItem value="suspended">Suspender</SelectItem></SelectContent></Select></label><label className="full">Motivo<Input name="reason" defaultValue={target.moderationReason ?? "Datos revisados por administración"} required /></label><DialogFooter className="full"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={loading}>{loading ? "Guardando…" : "Guardar decisión"}</Button></DialogFooter></form></DialogContent></Dialog>;
 }
 
 function AdminReviewPhotoDialog({ actor, photo, review, open, onOpenChange, onSaved }: { actor: SessionUser; photo: ReviewPhoto | null; review: Review | null; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (photo: ReviewPhoto) => void }) {

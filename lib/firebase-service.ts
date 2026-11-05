@@ -108,7 +108,8 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
         location: "Córdoba",
         contact: email,
         description: "",
-        status: "verified",
+        // Administración debe validar la organización antes de que publique oportunidades.
+        status: "pending",
         createdAt: serverTimestamp(),
       });
       batch.set(doc(firestore, "organizationMembers", `${user.uid}_${user.uid}`), {
@@ -433,6 +434,44 @@ export function observeAdminUsers(callback: (items: PlatformUser[]) => void, onE
     });
     callback(items.sort((a, b) => a.displayName.localeCompare(b.displayName, "es")));
   }, onError);
+}
+
+// Administración ve también organizaciones pendientes o suspendidas.
+export function observeAdminOrganizations(callback: (items: Organization[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  return onSnapshot(collection(db, "organizations"), (snapshot) => {
+    callback(snapshot.docs.map((item) => mapDoc<Organization>(item)));
+  }, onError);
+}
+
+// Valida o restringe una organización y deja constancia de la decisión.
+export async function adminUpdateOrganization(
+  actor: SessionUser,
+  target: Organization,
+  status: Organization["status"],
+  reason: string,
+) {
+  const firestore = requireDb();
+  const batch = writeBatch(firestore);
+  const moderatedAt = new Date().toISOString();
+  batch.update(doc(firestore, "organizations", target.id), {
+    status,
+    moderationReason: reason,
+    moderatedBy: actor.uid,
+    moderatedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(doc(collection(firestore, "adminActions")), {
+    actorId: actor.uid,
+    actorEmail: actor.email,
+    action: status === "verified" ? "verify_organization" : "restrict_organization",
+    targetType: "organization",
+    targetId: target.id,
+    reason,
+    createdAt: serverTimestamp(),
+  });
+  await batch.commit();
+  return { ...target, status, moderationReason: reason, moderatedBy: actor.uid, moderatedAt };
 }
 
 // A diferencia del catálogo público, administración también ve publicaciones cerradas.
