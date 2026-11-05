@@ -20,6 +20,7 @@ Actualizado: 5 de noviembre de 2026. Rama: `codex/e4-core`.
 - Bienvenida inicial a pantalla completa: Vía presenta y explica los cuatro videos antes del perfil obligatorio, con opción de omitir y adaptación móvil.
 - Acceso con Google corregido para usar el dominio oficial de autenticación `red-cercana-tao.firebaseapp.com` desde el hosting público.
 - Inicio de sesión simplificado: se retiraron los accesos demo y el selector de roles ficticios; quedan únicamente las tres entradas reales con Google.
+- Acceso de Google migrado a redirección completa y verificado hasta la pantalla real de selección de cuenta; el HTML público ya no se conserva en caché para evitar servir versiones antiguas.
 
 ## Verificado
 
