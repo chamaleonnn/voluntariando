@@ -142,6 +142,22 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /reviewPhotos/{reviewId} {
+      allow read: if resource.data.status == "approved" || owns(resource.data.userId) || isAdmin();
+      allow create: if signedIn()
+        && reviewId == request.resource.data.reviewId
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == "pending"
+        && request.resource.data.imageDataUrl is string
+        && request.resource.data.imageDataUrl.size() <= 750000
+        && request.resource.data.imageDataUrl.matches('data:image/jpeg;base64,.*')
+        && existsAfter(/databases/$(database)/documents/reviews/$(reviewId));
+      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        "status", "moderationReason", "moderatedBy", "moderatedAt"
+      ]);
+      allow delete: if false;
+    }
+
     match /adminActions/{actionId} {
       allow create, read: if isAdmin();
       allow update, delete: if false;

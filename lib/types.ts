@@ -99,6 +99,19 @@ export type ReviewReport = {
   createdAt: string;
 };
 
+// La foto se guarda aparte para que una reseña pueda publicarse antes de aprobar su imagen.
+export type ReviewPhoto = {
+  id: string;
+  reviewId: string;
+  userId: string;
+  imageDataUrl: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  moderationReason?: string;
+  moderatedAt?: string;
+  moderatedBy?: string;
+};
+
 export type Organization = {
   id: string;
   ownerId: string;

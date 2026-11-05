@@ -25,7 +25,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "@/lib/firebase";
-import type { Application, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
+import type { Application, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
 
 function requireDb() {
   if (!db) throw new Error("Firebase todavía no está configurado.");
@@ -251,11 +251,52 @@ export function observeReviews(callback: (items: Review[]) => void, onError: (er
   }, onError);
 }
 
-export async function createReview(review: Omit<Review, "id" | "createdAt" | "status">) {
+// Reduce la foto antes de guardarla para respetar el límite de Firestore y ahorrar datos móviles.
+async function compressReviewPhoto(file: File) {
+  const source = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new window.Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error("No pudimos leer la imagen seleccionada."));
+      element.src = source;
+    });
+    const scale = Math.min(1, 960 / Math.max(image.width, image.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const imageDataUrl = canvas.toDataURL("image/jpeg", 0.68);
+    if (imageDataUrl.length > 750_000) throw new Error("La imagen sigue siendo demasiado pesada. Elegí una foto más pequeña.");
+    return imageDataUrl;
+  } finally {
+    URL.revokeObjectURL(source);
+  }
+}
+
+export async function createReview(review: Omit<Review, "id" | "createdAt" | "status">, photo?: File) {
   const firestore = requireDb();
   const reviewRef = doc(firestore, "reviews", review.applicationId);
-  await setDoc(reviewRef, { ...review, status: "published", createdAt: serverTimestamp() });
+  const batch = writeBatch(firestore);
+  batch.set(reviewRef, { ...review, status: "published", createdAt: serverTimestamp() });
+
+  // La imagen reducida queda en un documento privado hasta que administración la aprueba.
+  if (photo) {
+    const imageDataUrl = await compressReviewPhoto(photo);
+    batch.set(doc(firestore, "reviewPhotos", review.applicationId), {
+      reviewId: review.applicationId, userId: review.userId, imageDataUrl,
+      status: "pending", createdAt: serverTimestamp(),
+    });
+  }
+  await batch.commit();
   return { ...review, id: reviewRef.id, status: "published" as const, createdAt: new Date().toISOString() };
+}
+
+// El público solo recibe fotos que ya fueron aprobadas.
+export function observeApprovedReviewPhotos(callback: (items: ReviewPhoto[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  const source = query(collection(db, "reviewPhotos"), where("status", "==", "approved"));
+  return onSnapshot(source, (snapshot) => callback(snapshot.docs.map((item) => mapDoc<ReviewPhoto>(item))), onError);
 }
 
 export async function reportReview(reviewId: string, reporterId: string, reason: string) {
@@ -272,6 +313,21 @@ export function observeAdminReviews(callback: (items: Review[]) => void, onError
 export function observeAdminReviewReports(callback: (items: ReviewReport[]) => void, onError: (error: Error) => void) {
   if (!db) return () => undefined;
   return onSnapshot(collection(db, "reviewReports"), (snapshot) => callback(snapshot.docs.map((item) => mapDoc<ReviewReport>(item))), onError);
+}
+
+export function observeAdminReviewPhotos(callback: (items: ReviewPhoto[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  return onSnapshot(collection(db, "reviewPhotos"), (snapshot) => callback(snapshot.docs.map((item) => mapDoc<ReviewPhoto>(item))), onError);
+}
+
+export async function adminModerateReviewPhoto(actor: SessionUser, photo: ReviewPhoto, status: "approved" | "rejected", reason: string) {
+  const firestore = requireDb();
+  const batch = writeBatch(firestore);
+  const moderatedAt = new Date().toISOString();
+  batch.update(doc(firestore, "reviewPhotos", photo.id), { status, moderationReason: reason, moderatedBy: actor.uid, moderatedAt: serverTimestamp() });
+  batch.set(doc(collection(firestore, "adminActions")), { actorId: actor.uid, action: status === "approved" ? "approve_review_photo" : "reject_review_photo", targetType: "reviewPhoto", targetId: photo.id, reason, createdAt: serverTimestamp() });
+  await batch.commit();
+  return { ...photo, status, moderationReason: reason, moderatedBy: actor.uid, moderatedAt };
 }
 
 export async function adminModerateReview(actor: SessionUser, review: Review, report: ReviewReport, status: "published" | "hidden", reason: string) {

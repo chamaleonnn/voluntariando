@@ -2,7 +2,7 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // El alcance E3 no incluye cargas de archivos desde la aplicación.
+    // El prototipo no usa Storage para conservar el proyecto dentro del plan gratuito.
     match /{allPaths=**} {
       allow read, write: if false;
     }
