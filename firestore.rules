@@ -98,6 +98,14 @@ service cloud.firestore {
           (request.resource.data.type in ["application_accepted", "application_rejected"]
             && isOrganizationAdmin(getAfter(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.organizationId)
             && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.userId)
+          ||
+          (request.resource.data.type == "proposal_received"
+            && isOrganizationAdmin(getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.organizationId)
+            && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.userId)
+          ||
+          (request.resource.data.type in ["proposal_accepted", "proposal_rejected"]
+            && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.userId == request.auth.uid
+            && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.organizationId)
         );
       allow update: if owns(resource.data.recipientId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read", "readAt"])
@@ -105,8 +113,24 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /invitations/{invitationId} {
+      allow create: if isOrganizationAdmin(request.resource.data.organizationId)
+        && request.resource.data.status == "pending"
+        && get(/databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)).data.organizationId == request.resource.data.organizationId;
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
+      allow update: if owns(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "respondedAt"])
+        && resource.data.status == "pending"
+        && request.resource.data.status in ["accepted", "rejected"];
+      allow delete: if false;
+    }
+
     match /matches/{matchId} {
-      allow create: if isOrganizationAdmin(request.resource.data.organizationId);
+      allow create: if isOrganizationAdmin(request.resource.data.organizationId)
+        || (owns(request.resource.data.userId)
+          && request.resource.data.source == "invitation"
+          && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.status == "accepted"
+          && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.userId == request.auth.uid);
       allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
       allow update: if isOrganizationAdmin(resource.data.organizationId) || isAdmin();
     }

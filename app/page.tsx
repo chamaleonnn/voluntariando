@@ -20,14 +20,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/sonner";
 import { DEMO_APPLICATIONS, DEMO_OPPORTUNITIES, DEMO_REVIEW_REPORTS, DEMO_REVIEWS, DEMO_VOLUNTEERS } from "@/lib/demo-data";
 import {
-  adminModerateReview, adminModerateReviewPhoto, adminUpdateOpportunity, adminUpdateUser, authErrorMessage, createApplication, createOpportunity, createReview, firebaseSignInWithGoogle, firebaseSignOut,
+  adminModerateReview, adminModerateReviewPhoto, adminUpdateOpportunity, adminUpdateUser, authErrorMessage, createApplication, createInvitation, createOpportunity, createReview, firebaseSignInWithGoogle, firebaseSignOut,
   observeAdminOpportunities, observeAdminReviewPhotos, observeAdminReviewReports, observeAdminReviews, observeAdminUsers, observeApplications, observeApprovedReviewPhotos, observeAuth, observeOpportunities, observeOrganizations,
-  markNotificationRead, observeNotifications, observeOrganizationProfile, observeReviews, observeVolunteerProfile, recordCompletedExperience, reportReview, saveOrganizationProfile,
-  saveVolunteerProfile, updateApplicationStatus, updateOpportunity,
+  markNotificationRead, observeInvitations, observeNotifications, observeOrganizationProfile, observeReviews, observeVisibleVolunteerProfiles, observeVolunteerProfile, recordCompletedExperience, reportReview, saveOrganizationProfile,
+  saveVolunteerProfile, updateApplicationStatus, updateInvitationStatus, updateOpportunity,
 } from "@/lib/firebase-service";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { recommendOpportunities } from "@/lib/recommendations";
-import type { AppNotification, Application, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
+import type { AppNotification, Application, Invitation, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
 
 type Screen = "landing" | "opportunities" | "volunteer" | "organization" | "admin";
 
@@ -128,6 +128,8 @@ export default function Home() {
   const [organizationProfile, setOrganizationProfile] = useState<Organization | null>(null);
   const [organizationLoadedFor, setOrganizationLoadedFor] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [volunteers, setVolunteers] = useState<VolunteerProfile[]>(DEMO_VOLUNTEERS);
   useEffect(() => {
     const saved = window.localStorage.getItem("red-cercana-theme");
     const preferred = saved === "dark" || saved === "light"
@@ -195,7 +197,7 @@ export default function Home() {
   useEffect(() => {
     if (!user || user.isDemo) return;
     const fail = (error: Error) => console.error("Sincronización privada", error);
-    const stops = [observeApplications(user, setApplications, fail), observeNotifications(user.uid, setNotifications, fail)];
+    const stops = [observeApplications(user, setApplications, fail), observeNotifications(user.uid, setNotifications, fail), observeInvitations(user, setInvitations, fail)];
     if (user.role === "volunteer") {
       stops.push(observeVolunteerProfile(user.uid, (next) => {
         if (next) setProfile(next);
@@ -203,6 +205,7 @@ export default function Home() {
       }));
     }
     if (user.role === "organization") {
+      stops.push(observeVisibleVolunteerProfiles(setVolunteers, fail));
       stops.push(observeOrganizationProfile(user.uid, (next) => {
         setOrganizationProfile(next);
         setOrganizationLoadedFor(user.uid);
@@ -306,14 +309,14 @@ export default function Home() {
         {screen === "opportunities" && <OpportunityFeed opportunities={recommended} user={user} onOpen={setSelectedOpportunity} />}
         {screen === "volunteer" && user?.role === "volunteer" && !user.isDemo && profileLoadedFor !== user.uid && <ProfileLoading />}
         {screen === "volunteer" && user?.role === "volunteer" && (user.isDemo || profileLoadedFor === user.uid) && (
-          <VolunteerPanel user={user} profile={profile} applications={applications} reviews={reviews} opportunities={recommended} onProfile={setProfile} onReview={(next) => setReviews((current) => [next, ...current.filter((item) => item.id !== next.id)])} onExplore={() => navigate("opportunities")} />
+          <VolunteerPanel user={user} profile={profile} applications={applications} invitations={invitations} reviews={reviews} opportunities={recommended} onInvitations={setInvitations} onProfile={setProfile} onReview={(next) => setReviews((current) => [next, ...current.filter((item) => item.id !== next.id)])} onExplore={() => navigate("opportunities")} />
         )}
         {screen === "organization" && user?.role === "organization" && !user.isDemo && organizationLoadedFor !== user.uid && <ProfileLoading />}
         {screen === "organization" && user?.role === "organization" && (user.isDemo || organizationLoadedFor === user.uid) && (
           <OrganizationPanel
-            user={user} organization={organization} opportunities={opportunities} applications={applications}
+            user={user} organization={organization} opportunities={opportunities} applications={applications} invitations={invitations} volunteers={volunteers}
             onOrganization={(next) => setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next])}
-            onOpportunities={setOpportunities} onApplications={setApplications} onProfile={setProfile}
+            onOpportunities={setOpportunities} onApplications={setApplications} onInvitations={setInvitations} onProfile={setProfile}
           />
         )}
         {screen === "admin" && user?.role === "admin" && <AdminPanel user={user} opportunities={opportunities} reviews={reviews} />}
@@ -408,15 +411,23 @@ function OpportunityCard({ item, personalized, onOpen }: { item: Opportunity; pe
   return <article className="feed-opportunity-card"><div className="opportunity-photo" style={{ backgroundImage: `url(${item.imageUrl})` }}><Badge>{item.category}</Badge>{item.simulated && <SimulatedSeal />}</div><div className="opportunity-copy">{personalized && <div className="compatibility-row"><strong>{item.compatibility ?? 0}% compatible</strong><span><i style={{ width: `${item.compatibility ?? 0}%` }} /></span></div>}<div className="opportunity-heading"><div><h2>{item.title}</h2><p>{item.organization}</p></div></div><div className="opportunity-info"><span><CalendarDays /> {item.dateLabel}</span><span><Clock3 /> {item.time}</span><span><MapPin /> {item.neighborhood}</span><span>{item.modality ?? "Presencial"}</span></div><p className="opportunity-description">{item.description}</p>{personalized && <p className="recommendation-reason">{item.recommendedBecause}</p>}<footer><span><Users /> {item.availableSpots} lugares disponibles</span><Button size="sm" onClick={onOpen}>Ver detalle</Button></footer></div></article>;
 }
 
-function VolunteerPanel({ user, profile, applications, reviews, opportunities, onProfile, onReview, onExplore }: { user: SessionUser; profile: VolunteerProfile; applications: Application[]; reviews: Review[]; opportunities: Opportunity[]; onProfile: (profile: VolunteerProfile) => void; onReview: (review: Review) => void; onExplore: () => void }) {
+function VolunteerPanel({ user, profile, applications, invitations, reviews, opportunities, onInvitations, onProfile, onReview, onExplore }: { user: SessionUser; profile: VolunteerProfile; applications: Application[]; invitations: Invitation[]; reviews: Review[]; opportunities: Opportunity[]; onInvitations: (items: Invitation[]) => void; onProfile: (profile: VolunteerProfile) => void; onReview: (review: Review) => void; onExplore: () => void }) {
   const [editOpen, setEditOpen] = useState(false);
   const [featuredOpen, setFeaturedOpen] = useState(false);
   const [reviewApplication, setReviewApplication] = useState<Application | null>(null);
   const featured = MEDALS.filter((medal) => profile.featuredMedals?.includes(medal.name));
+  async function respondToInvitation(item: Invitation, status: "accepted" | "rejected") {
+    try {
+      const next = user.isDemo ? { ...item, status } : await updateInvitationStatus(user, item, status);
+      onInvitations(invitations.map((current) => current.id === next.id ? next : current));
+      toast.success(status === "accepted" ? "Propuesta aceptada y match creado" : "Propuesta rechazada");
+    } catch (error) { toast.error("No pudimos responder la propuesta", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); }
+  }
   return <Dashboard title={`Hola, ${profile.name}`} description="Tu perfil y tu trayectoria determinan las recomendaciones." icon={<UserRound />} action={<Button onClick={() => setEditOpen(true)}><Pencil /> Editar perfil</Button>}>
     <div className="stats-grid"><Stat label="Experiencias" value={profile.completedExperiences} detail="completadas" /><Stat label="Intereses" value={profile.interests.length} detail="registrados" /><Stat label="Habilidades" value={(profile.declaredSkills ?? []).length} detail="declaradas" /><Stat label="Verificadas" value={Object.keys(profile.verifiedSkills ?? {}).length} detail="por organizaciones" /></div>
     <div className="dashboard-grid"><section className="panel-card wide-panel"><div className="panel-heading"><div><span>Opciones para vos</span><h2>Mayor compatibilidad</h2></div><Button variant="outline" onClick={onExplore}>Ver todas</Button></div><div className="mini-opportunity-grid">{opportunities.slice(0, 3).map((item) => <div key={item.id}><b>{item.compatibility ?? 0}%</b>{item.simulated && <SimulatedSeal />}<h3>{item.title}</h3><p>{item.recommendedBecause}</p></div>)}</div></section>
       <section className="panel-card"><div className="panel-heading"><div><span>Perfil</span><h2>Datos para el análisis</h2></div></div><Info label="Ubicación" value={profile.location} /><Info label="Intereses" value={profile.interests.join(", ") || "Sin completar"} /><Info label="Habilidades" value={(profile.declaredSkills ?? []).join(", ") || "Sin completar"} /><Info label="Disponibilidad" value={(profile.availability ?? []).join(", ") || "Sin completar"} />{Object.values(profile.socialLinks ?? {}).some(Boolean) && <div className="social-links">{profile.socialLinks?.instagram && <a href={profile.socialLinks.instagram} target="_blank" rel="noreferrer"><Globe2 /> Instagram</a>}{profile.socialLinks?.linkedin && <a href={profile.socialLinks.linkedin} target="_blank" rel="noreferrer"><Globe2 /> LinkedIn</a>}{profile.socialLinks?.other && <a href={profile.socialLinks.other} target="_blank" rel="noreferrer"><Globe2 /> Otra red</a>}</div>}</section>
+      <section className="panel-card"><div className="panel-heading"><div><span>Propuestas</span><h2>Invitaciones de organizaciones</h2></div></div><div className="timeline-list">{invitations.map((item) => <div key={item.id}><span className="timeline-icon"><Building2 /></span><div><b>{item.opportunityTitle}</b><p>{item.organizationName} · {item.message}</p></div>{item.status === "pending" ? <span className="inline-actions"><Button size="sm" onClick={() => void respondToInvitation(item, "accepted")}>Aceptar</Button><Button size="sm" variant="outline" onClick={() => void respondToInvitation(item, "rejected")}>Rechazar</Button></span> : <Badge variant="secondary">{item.status === "accepted" ? "Aceptada" : "Rechazada"}</Badge>}</div>)}{!invitations.length && <p className="panel-note">Las propuestas directas aparecerán acá.</p>}</div></section>
       <section className="panel-card"><div className="panel-heading"><div><span>Solicitudes</span><h2>Estado de tus postulaciones</h2></div></div><div className="timeline-list">{applications.filter((item) => item.userId === user.uid || user.isDemo).map((item) => { const reviewed = reviews.some((review) => review.applicationId === item.id); return <div key={item.id}><span className="timeline-icon"><Check /></span><div><b>{item.opportunityTitle}</b><p>{item.completedAt ? "Experiencia completada" : item.status === "accepted" ? "Participación confirmada" : item.status === "rejected" ? "Solicitud rechazada" : "Pendiente de respuesta"}</p></div>{item.completedAt ? <Button size="sm" variant="outline" disabled={reviewed} onClick={() => setReviewApplication(item)}>{reviewed ? "Reseñada" : "Escribir reseña"}</Button> : <Badge variant="secondary">{item.status}</Badge>}</div>; })}</div></section>
       <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Medallas</span><h2>Habilidades verificadas</h2></div><Button variant="outline" onClick={() => setFeaturedOpen(true)}><Star /> Elegir destacadas</Button></div><p className="panel-note">El nivel aumenta cada vez que una organización reconoce esa habilidad en una experiencia completada.</p>{featured.length > 0 ? <><h3 className="featured-title">Destacadas en tu perfil</h3><div className="featured-medals">{featured.map((medal) => <SkillMedal key={medal.name} medal={medal} level={profile.verifiedSkills?.[medal.name] ?? 0} />)}</div></> : <p className="featured-empty">Todavía no elegiste medallas destacadas. Podés mostrar hasta cuatro.</p>}<div className="medal-catalog">{MEDALS.map((medal) => <SkillMedal key={medal.name} medal={medal} level={profile.verifiedSkills?.[medal.name] ?? 0} />)}</div></section>
       <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Trayectoria</span><h2>Experiencias verificadas</h2></div></div><div className="timeline-list">{(profile.experiences ?? []).length ? profile.experiences!.map((item) => <div key={`${item.opportunityId}-${item.completedAt}`}><span className="timeline-icon"><Check /></span><div><b>{item.opportunityTitle}</b><p>{item.organization} · {item.tasks.join(", ")}</p><small>Habilidades observadas: {item.skills.join(", ")}</small></div></div>) : <p className="panel-note">Las experiencias completadas aparecerán acá.</p>}</div></section>
@@ -424,11 +435,12 @@ function VolunteerPanel({ user, profile, applications, reviews, opportunities, o
   </Dashboard>;
 }
 
-function OrganizationPanel({ user, organization, opportunities, applications, onOrganization, onOpportunities, onApplications, onProfile }: { user: SessionUser; organization: Organization; opportunities: Opportunity[]; applications: Application[]; onOrganization: (organization: Organization) => void; onOpportunities: (items: Opportunity[]) => void; onApplications: (items: Application[]) => void; onProfile: (profile: VolunteerProfile) => void }) {
+function OrganizationPanel({ user, organization, opportunities, applications, invitations, volunteers, onOrganization, onOpportunities, onApplications, onInvitations, onProfile }: { user: SessionUser; organization: Organization; opportunities: Opportunity[]; applications: Application[]; invitations: Invitation[]; volunteers: VolunteerProfile[]; onOrganization: (organization: Organization) => void; onOpportunities: (items: Opportunity[]) => void; onApplications: (items: Application[]) => void; onInvitations: (items: Invitation[]) => void; onProfile: (profile: VolunteerProfile) => void }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [editing, setEditing] = useState<Opportunity | null>(null);
   const [experience, setExperience] = useState<Application | null>(null);
+  const [invitedVolunteer, setInvitedVolunteer] = useState<VolunteerProfile | null>(null);
   const own = opportunities.filter((item) => item.organizationId === organization.id || (user.isDemo && item.organizationId === "fundemos"));
   const requests = applications.filter((item) => own.some((opportunity) => opportunity.id === item.opportunityId) || user.isDemo);
   async function decide(item: Application, status: "accepted" | "rejected") {
@@ -443,9 +455,11 @@ function OrganizationPanel({ user, organization, opportunities, applications, on
     <div className="dashboard-grid"><section className="panel-card wide-panel"><div className="panel-heading"><div><span>Perfil</span><h2>Información de la organización</h2></div><Button variant="outline" onClick={() => setProfileOpen(true)}><Pencil /> Editar</Button></div><p>{organization.description}</p><Info label="Ubicación" value={organization.location ?? organization.province} /><Info label="Contacto" value={organization.contact ?? organization.email} /></section>
       <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Publicaciones</span><h2>Oportunidades</h2></div></div><div className="timeline-list">{own.map((item) => <div key={item.id}><span className="timeline-icon"><CalendarDays /></span><div><b>{item.title}</b><p>{item.modality ?? "Presencial"} · {(item.availability ?? []).join(", ")}</p></div><Button size="sm" variant="outline" onClick={() => { setEditing(item); setOpportunityOpen(true); }}>Editar</Button></div>)}</div></section>
       <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Vinculación</span><h2>Solicitudes de participación</h2></div></div><div className="timeline-list">{requests.map((item) => <div key={item.id}><span className="profile-avatar">{item.userName.charAt(0)}</span><div><b>{item.userName}</b><p>{item.opportunityTitle} · {item.status}</p></div>{item.status === "pending" ? <span className="inline-actions"><Button size="sm" onClick={() => void decide(item, "accepted")}>Aceptar</Button><Button size="sm" variant="outline" onClick={() => void decide(item, "rejected")}>Rechazar</Button></span> : item.status === "accepted" && !item.completedAt ? <Button size="sm" onClick={() => setExperience(item)}>Marcar realizada</Button> : <Badge variant="secondary">{item.completedAt ? "Completada" : item.status}</Badge>}</div>)}</div></section>
+      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Descubrir personas</span><h2>Voluntarios disponibles</h2></div></div><div className="volunteer-card-grid">{volunteers.map((volunteer) => { const pending = invitations.some((item) => item.userId === volunteer.id && item.status === "pending"); return <article key={volunteer.id}><span className="profile-avatar">{volunteer.initials}</span><div><b>{volunteer.name}</b><p>{volunteer.location}</p><small>{(volunteer.declaredSkills ?? []).slice(0, 3).join(" · ") || "Perfil en formación"}</small></div><Button size="sm" variant="outline" disabled={pending || !own.length} onClick={() => setInvitedVolunteer(volunteer)}>{pending ? "Invitación enviada" : "Invitar"}</Button></article>; })}{!volunteers.length && <p className="panel-note">Todavía no hay perfiles disponibles para organizaciones.</p>}</div></section>
     </div>
     <OrganizationProfileDialog user={user} organization={organization} open={profileOpen} onOpenChange={setProfileOpen} onSaved={onOrganization} />
     <OpportunityEditor user={user} organization={organization} opportunity={editing} open={opportunityOpen} onOpenChange={setOpportunityOpen} onSaved={(next) => onOpportunities(editing ? opportunities.map((item) => item.id === next.id ? next : item) : [next, ...opportunities])} />
+    <InvitationDialog user={user} organization={organization} volunteer={invitedVolunteer} opportunities={own} open={Boolean(invitedVolunteer)} onOpenChange={(open) => !open && setInvitedVolunteer(null)} onSaved={(next) => onInvitations([next, ...invitations.filter((item) => item.id !== next.id)])} />
     <ExperienceDialog user={user} organization={organization} application={experience} open={Boolean(experience)} onOpenChange={(open) => !open && setExperience(null)} onCompleted={(next, skills, tasks) => { onApplications(applications.map((item) => item.id === next.id ? next : item)); onProfile({ ...DEMO_VOLUNTEERS[0], completedExperiences: DEMO_VOLUNTEERS[0].completedExperiences + 1, verifiedSkills: raiseMedalLevels(DEMO_VOLUNTEERS[0].verifiedSkills ?? {}, skills), experiences: [...(DEMO_VOLUNTEERS[0].experiences ?? []), { opportunityId: next.opportunityId, opportunityTitle: next.opportunityTitle, organization: organization.name, tasks, skills, completedAt: new Date().toISOString() }] }); }} />
   </Dashboard>;
 }
@@ -727,6 +741,29 @@ function ReviewReportDialog({ user, review, open, onOpenChange }: { user: Sessio
 function OrganizationProfileDialog({ user, organization, open, onOpenChange, onSaved, mandatory = false }: { user: SessionUser; organization: Organization; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (organization: Organization) => void; mandatory?: boolean }) {
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); const next = { ...organization, name: String(form.get("name")), description: String(form.get("description")), location: String(form.get("location")), province: String(form.get("province")), contact: String(form.get("contact")) }; if (!next.name || !next.description || !next.location || !next.contact) return toast.error("Completá todos los campos obligatorios."); try { if (!user.isDemo) await saveOrganizationProfile(next); onSaved(next); onOpenChange(false); toast.success("Perfil actualizado"); } catch (error) { toast.error("No pudimos guardar", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); } }
   return <Dialog open={open} onOpenChange={(nextOpen) => { if (!mandatory || nextOpen) onOpenChange(nextOpen); }}><DialogContent className="create-dialog" showCloseButton={!mandatory} onEscapeKeyDown={mandatory ? (event) => event.preventDefault() : undefined} onPointerDownOutside={mandatory ? (event) => event.preventDefault() : undefined}><DialogHeader><DialogTitle>{mandatory ? "Completá la organización para continuar" : "Perfil de la organización"}</DialogTitle><DialogDescription>{mandatory ? "Esta información es necesaria antes de publicar oportunidades o recibir solicitudes." : "Información principal y de contacto."}</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label>Nombre<Input name="name" defaultValue={organization.name} required /></label><label>Provincia<Input name="province" defaultValue={organization.province} required /></label><label className="full">Descripción<Textarea name="description" defaultValue={organization.description} required /></label><label>Ubicación<Input name="location" defaultValue={organization.location} required /></label><label>Contacto<Input name="contact" defaultValue={organization.contact} required /></label><DialogFooter className="full">{!mandatory && <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>}<Button type="submit">{mandatory ? "Guardar y entrar" : "Guardar"}</Button></DialogFooter></form></DialogContent></Dialog>;
+}
+
+function InvitationDialog({ user, organization, volunteer, opportunities, open, onOpenChange, onSaved }: { user: SessionUser; organization: Organization; volunteer: VolunteerProfile | null; opportunities: Opportunity[]; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (invitation: Invitation) => void }) {
+  const [loading, setLoading] = useState(false);
+  if (!volunteer) return null;
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const opportunity = opportunities.find((item) => item.id === String(form.get("opportunityId")));
+    const message = String(form.get("message")).trim();
+    if (!opportunity || message.length < 10) return toast.error("Elegí una oportunidad y escribí un mensaje breve.");
+    setLoading(true);
+    try {
+      const next = user.isDemo
+        ? { id: `demo-invitation-${Date.now()}`, opportunityId: opportunity.id, opportunityTitle: opportunity.title, organizationId: organization.id, organizationName: organization.name, userId: volunteer!.id, userName: volunteer!.name, message, status: "pending" as const, createdAt: new Date().toISOString() }
+        : await createInvitation(user, organization, opportunity, volunteer!, message);
+      onSaved(next);
+      onOpenChange(false);
+      toast.success("Propuesta enviada", { description: `${volunteer!.name} podrá aceptarla o rechazarla desde su espacio.` });
+    } catch (error) { toast.error("No pudimos enviar la propuesta", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); }
+    finally { setLoading(false); }
+  }
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="create-dialog"><DialogHeader><DialogTitle>Invitar a {volunteer.name}</DialogTitle><DialogDescription>La propuesta llegará como notificación y no genera un match hasta que la persona acepte.</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label className="full">Oportunidad<Select name="opportunityId" defaultValue={opportunities[0]?.id}><SelectTrigger><SelectValue placeholder="Elegí una oportunidad" /></SelectTrigger><SelectContent>{opportunities.map((item) => <SelectItem key={item.id} value={item.id}>{item.title}</SelectItem>)}</SelectContent></Select></label><label className="full">Mensaje<Textarea name="message" minLength={10} maxLength={400} defaultValue={`Hola ${volunteer.name}, creemos que tu perfil puede aportar mucho a esta oportunidad. ¿Te gustaría participar?`} required /></label><DialogFooter className="full"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={loading}>{loading ? "Enviando…" : "Enviar propuesta"}</Button></DialogFooter></form></DialogContent></Dialog>;
 }
 
 function OpportunityEditor({ user, organization, opportunity, open, onOpenChange, onSaved }: { user: SessionUser; organization: Organization; opportunity: Opportunity | null; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (opportunity: Opportunity) => void }) {

@@ -116,11 +116,25 @@ export type AppNotification = {
   id: string;
   recipientId: string;
   actorId: string;
-  applicationId: string;
-  type: "application_received" | "application_accepted" | "application_rejected";
+  applicationId?: string;
+  invitationId?: string;
+  type: "application_received" | "application_accepted" | "application_rejected" | "proposal_received" | "proposal_accepted" | "proposal_rejected";
   title: string;
   message: string;
   read: boolean;
+  createdAt: string;
+};
+
+export type Invitation = {
+  id: string;
+  opportunityId: string;
+  opportunityTitle: string;
+  organizationId: string;
+  organizationName: string;
+  userId: string;
+  userName: string;
+  message: string;
+  status: "pending" | "accepted" | "rejected";
   createdAt: string;
 };
 

@@ -25,7 +25,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "@/lib/firebase";
-import type { AppNotification, Application, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
+import type { AppNotification, Application, Invitation, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
 
 function requireDb() {
   if (!db) throw new Error("Firebase todavía no está configurado.");
@@ -241,6 +241,65 @@ export function observeVolunteerProfile(userId: string, callback: (profile: Volu
   return onSnapshot(doc(db, "volunteerProfiles", userId), (snapshot) => {
     callback(snapshot.exists() ? ({ id: snapshot.id, ...snapshot.data() } as VolunteerProfile) : null);
   });
+}
+
+export function observeVisibleVolunteerProfiles(callback: (profiles: VolunteerProfile[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  const source = query(collection(db, "volunteerProfiles"), where("visibleToOrganizations", "==", true));
+  return onSnapshot(source, (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as VolunteerProfile))), onError);
+}
+
+export function observeInvitations(user: SessionUser, callback: (items: Invitation[]) => void, onError: (error: Error) => void) {
+  if (!db || user.isDemo) return () => undefined;
+  const field = user.role === "organization" ? "organizationId" : "userId";
+  const source = query(collection(db, "invitations"), where(field, "==", user.uid));
+  return onSnapshot(source, (snapshot) => {
+    const items = snapshot.docs.map((item) => mapDoc<Invitation>(item));
+    callback(items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+  }, onError);
+}
+
+export async function createInvitation(actor: SessionUser, organization: Organization, opportunity: Opportunity, volunteer: VolunteerProfile, message: string) {
+  const firestore = requireDb();
+  const invitationRef = doc(collection(firestore, "invitations"));
+  const id = invitationRef.id;
+  const batch = writeBatch(firestore);
+  batch.set(invitationRef, {
+    opportunityId: opportunity.id, opportunityTitle: opportunity.title,
+    organizationId: organization.id, organizationName: organization.name,
+    userId: volunteer.id, userName: volunteer.name, message, status: "pending",
+    createdAt: serverTimestamp(),
+  });
+  batch.set(doc(firestore, "notifications", `proposal_received_${id}`), {
+    recipientId: volunteer.id, actorId: actor.uid, invitationId: id,
+    type: "proposal_received", title: "Tenés una propuesta",
+    message: `${organization.name} te invitó a ${opportunity.title}.`, read: false,
+    createdAt: serverTimestamp(),
+  });
+  await batch.commit();
+  return { id, opportunityId: opportunity.id, opportunityTitle: opportunity.title, organizationId: organization.id, organizationName: organization.name, userId: volunteer.id, userName: volunteer.name, message, status: "pending" as const, createdAt: new Date().toISOString() };
+}
+
+export async function updateInvitationStatus(actor: SessionUser, invitation: Invitation, status: "accepted" | "rejected") {
+  const firestore = requireDb();
+  const batch = writeBatch(firestore);
+  batch.update(doc(firestore, "invitations", invitation.id), { status, respondedAt: serverTimestamp() });
+  if (status === "accepted") {
+    batch.set(doc(firestore, "matches", `invitation_${invitation.id}`), {
+      invitationId: invitation.id, opportunityId: invitation.opportunityId, opportunityTitle: invitation.opportunityTitle,
+      organizationId: invitation.organizationId, userId: invitation.userId, source: "invitation", status: "confirmed",
+      createdAt: serverTimestamp(),
+    });
+  }
+  batch.set(doc(firestore, "notifications", `proposal_${status}_${invitation.id}`), {
+    recipientId: invitation.organizationId, actorId: actor.uid, invitationId: invitation.id,
+    type: status === "accepted" ? "proposal_accepted" : "proposal_rejected",
+    title: status === "accepted" ? "Propuesta aceptada" : "Propuesta rechazada",
+    message: `${invitation.userName} ${status === "accepted" ? "aceptó" : "rechazó"} la invitación a ${invitation.opportunityTitle}.`,
+    read: false, createdAt: serverTimestamp(),
+  });
+  await batch.commit();
+  return { ...invitation, status };
 }
 
 // Observa el perfil propio de una organización, incluso mientras todavía está incompleto.
