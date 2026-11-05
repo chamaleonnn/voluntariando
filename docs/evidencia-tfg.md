@@ -101,7 +101,7 @@ En el siguiente cálculo, `verifiedSkills` afecta el criterio habilidades y las 
 
 ## 5. Pruebas y seguridad
 
-La última prueba Firestore terminó correctamente mediante el emulador local: 5 casos aprobados, 0 fallidos (`scripts/firestore-rules.test.mjs`). No fue necesario repetirla para este informe.
+La última prueba Firestore terminó correctamente mediante el emulador local: 11 casos aprobados, 0 fallidos (`scripts/firestore-rules.test.mjs`).
 
 Permisos comprobados:
 
@@ -110,6 +110,10 @@ Permisos comprobados:
 3. El voluntario no puede acreditarse habilidades verificadas por cuenta propia.
 4. Una organización pendiente no puede publicar oportunidades.
 5. Un administrador puede validar una organización pendiente.
+6. Una ausencia solo puede ser informada por una organización vinculada y confirmada por administración.
+7. La visibilidad elegida por el voluntario impide leer perfiles privados.
+8. Una devolución negativa requiere moderación administrativa y la advertencia es privada.
+9. Una suspensión vencida puede reactivarse sin permitir cambios de estado arbitrarios.
 
 También existen reglas para usuarios, perfiles, oportunidades, postulaciones, notificaciones, invitaciones, matches, reseñas, denuncias, fotos y acciones administrativas, pero no todas poseen todavía una prueba automatizada específica. Permanecen sin verificación automatizada extremo a extremo: Google Auth real, cada transición de postulaciones, lectura/marcado de notificaciones, reseñas y denuncias, moderación fotográfica, suspensión de cuentas, privacidad de perfiles y acceso de administración a todos los recursos. La compilación y el lint pasan, pero no sustituyen esas pruebas de permisos.
 
@@ -130,17 +134,17 @@ También existen reglas para usuarios, perfiles, oportunidades, postulaciones, n
 ### Parcial
 
 - OpenAI: código y fallback implementados; llamada real no desplegada/verificada por límites de Spark.
-- Privacidad: existen visibilidad y redes opcionales en el modelo/perfil, pero falta cobertura automatizada exhaustiva de lectura para cada combinación.
-- Contacto posterior al match: hay datos de contacto y comunicación por correo como dato, pero no un intercambio condicionado y probado específicamente después del match.
+- Privacidad: el voluntario controla por separado la visibilidad para organizaciones y para otros voluntarios; las reglas y una prueba automatizada respetan ambas decisiones.
+- Contacto posterior al match: el correo se muestra únicamente después de aceptar una postulación o invitación.
 - Experiencias: tareas y habilidades funcionan; no se registran horas verificadas ni existe aprobación administrativa previa de toda devolución.
-- Moderación/suspensión: el administrador puede suspender manualmente; la regla automática de dos devoluciones negativas en tres meses no está terminada en esta rama.
+- Moderación/suspensión: dos devoluciones negativas confirmadas en 90 días o tres ausencias confirmadas habilitan suspensión temporal, siempre después de revisión administrativa.
 
 ### Pospuesto, no eliminado
 
 - Mejoras visuales de Vía y sus tutoriales interactivos.
 - Producción y validación extremo a extremo de OpenAI.
 - Videos tutoriales nuevos: se conservan sin cambios los cuatro videos actuales.
-- Registro completo de cancelaciones y ausencias, incluida la regla de tres ausencias.
+- Automatización del aviso previo por correo; la interfaz informa el criterio de seis horas y la organización puede reportar incumplimientos.
 
 ### Correspondencia con las historias de usuario
 
@@ -150,7 +154,7 @@ La fuente académica disponible (`Tesis - Prototipado Tecnologico.pdf`) contiene
 |---|---|---|
 | HU-01 Google | Terminada | Falta prueba automatizada con proveedor Google real. |
 | HU-02 Perfil voluntario | Terminada | Onboarding obligatorio y edición implementados. |
-| HU-03 Privacidad/visibilidad | Parcial | Modelo y redes existen; faltan controles/cobertura completa de permisos de visibilidad. |
+| HU-03 Privacidad/visibilidad | Terminada | Controles separados, redes opcionales y reglas verificadas. |
 | HU-04 Organización | Terminada | Alta pendiente, edición y administración implementadas. |
 | HU-05 Validar organización | Terminada | Admin valida/suspende; organización pendiente no publica. |
 | HU-06 Gestionar oportunidades | Terminada | Crear, editar, publicar y moderar; no se borra físicamente. |
@@ -159,8 +163,8 @@ La fuente académica disponible (`Tesis - Prototipado Tecnologico.pdf`) contiene
 | HU-09 Explorar voluntarios | Parcial | La organización ve perfiles e invita; filtrado avanzado de voluntarios no está desarrollado. |
 | HU-10 Interés, invitaciones y matches | Terminada | Ambos caminos crean match solo cuando corresponde. |
 | HU-11 Consultar estados | Terminada | Estados visibles en paneles y notificaciones. |
-| HU-12 Contacto tras match | Parcial | No hay liberación automática y condicionada del contacto luego del match. |
-| HU-13 Completada/cancelación/ausencia | Parcial | Completada funciona; cancelación y ausencia no están cerradas. |
+| HU-12 Contacto tras match | Terminada | El correo aparece después de aceptar el vínculo. |
+| HU-13 Completada/cancelación/ausencia | Parcial | Completada y ausencia revisada funcionan; la cancelación autónoma previa no está implementada. |
 | HU-14 Horas, tareas, habilidades y devolución | Parcial | Tareas, habilidades y devolución se guardan; horas verificadas no se actualizan. |
 
 Para una corrección definitiva contra exactamente 14 historias debe aportarse la versión del documento que las enumera; usar otra selección implicaría inventar el alcance académico.
