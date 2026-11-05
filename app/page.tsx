@@ -5,7 +5,7 @@ import Image from "next/image";
 import {
   ArrowRight, Ban, Bot, Building2, CalendarDays, Check, ChevronRight, CirclePlay, Clock3,
   Globe2, HeartHandshake, LogOut, Map, MapPin, Moon, Pencil, Plus, Search, Settings2,
-  Shield, ShieldCheck, Sparkles, Sun, UserCog, UserRound, Users,
+  Shield, ShieldCheck, Sparkles, Sun, UserRound, Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -115,7 +115,6 @@ export default function Home() {
   const [screen, setScreen] = useState<Screen>("landing");
   const [user, setUser] = useState<SessionUser | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
-  const [roleOpen, setRoleOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [opportunities, setOpportunities] = useState<Opportunity[]>(DEMO_OPPORTUNITIES);
   const [applications, setApplications] = useState<Application[]>(DEMO_APPLICATIONS);
@@ -257,7 +256,6 @@ export default function Home() {
     }
     setUser(nextUser);
     setAuthOpen(false);
-    setRoleOpen(false);
     setScreen(screenForRole(nextUser.role));
     const welcomeKey = `voluntariando-via-welcome-${nextUser.uid}-v1`;
     setViaWelcomeOpen(nextUser.role !== "admin" && !window.localStorage.getItem(welcomeKey));
@@ -340,7 +338,7 @@ export default function Home() {
       <div className="ambient-background" aria-hidden="true"><span className="ambient-orb ambient-orb-one" /><span className="ambient-orb ambient-orb-two" /><span className="ambient-orb ambient-orb-three" /></div>
       {/* Los avisos aparecen debajo del encabezado para no bloquear la navegación. */}
       <Toaster position="top-center" offset={90} richColors />
-      <SiteHeader screen={screen} user={user} notifications={notifications} onReadNotification={readNotification} onTutorial={() => setTutorialOpen(true)} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSwitchRole={() => setRoleOpen(true)} onSignOut={signOut} />
+      <SiteHeader screen={screen} user={user} notifications={notifications} onReadNotification={readNotification} onTutorial={() => setTutorialOpen(true)} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSignOut={signOut} />
       <div className="screen-stage" key={screen}>
         {screen === "landing" && <Landing opportunities={opportunities} reviews={reviews} reviewPhotos={reviewPhotos} user={user} onExplore={() => navigate("opportunities")} onLogin={() => setAuthOpen(true)} />}
         {screen === "opportunities" && <OpportunityFeed opportunities={recommended} user={user} onOpen={setSelectedOpportunity} />}
@@ -361,7 +359,6 @@ export default function Home() {
       <GuideAssistant user={user} profile={profile} opportunities={recommended} promptToken={viaPromptToken} onOpenOpportunity={setSelectedOpportunity} />
       <OpportunityDialog opportunity={selectedOpportunity} user={user} applications={applications} open={Boolean(selectedOpportunity)} onOpenChange={(open) => !open && setSelectedOpportunity(null)} onApply={apply} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onUser={loginAs} />
-      <RoleSwitcher open={roleOpen} onOpenChange={setRoleOpen} onUser={loginAs} />
       {user?.role === "volunteer" && !user.isDemo && <VolunteerProfileDialog user={user} profile={profile} open={volunteerOnboarding && !viaWelcomeOpen} onOpenChange={() => undefined} onSaved={setProfile} mandatory />}
       {user?.role === "organization" && !user.isDemo && <OrganizationProfileDialog user={user} organization={organization} open={organizationOnboarding && !viaWelcomeOpen} onOpenChange={() => undefined} onSaved={(next) => { setOrganizationProfile(next); setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next]); }} mandatory />}
       {user && user.role !== "admin" && <ViaVideoWelcome role={user.role} open={viaWelcomeOpen} onFinish={finishViaWelcome} />}
@@ -374,8 +371,8 @@ function ProfileLoading() {
   return <section className="profile-loading" role="status"><span className="profile-loading-mark"><Sparkles /></span><h1>Preparando tu espacio…</h1><p>Estamos cargando tu perfil de forma segura.</p></section>;
 }
 
-function SiteHeader({ screen, user, notifications, onReadNotification, onTutorial, onTheme, onNavigate, onLogin, onSwitchRole, onSignOut }: {
-  screen: Screen; user: SessionUser | null; notifications: AppNotification[]; onReadNotification: (item: AppNotification) => void; onTutorial: () => void; onTheme: () => void; onNavigate: (screen: Screen) => void; onLogin: () => void; onSwitchRole: () => void; onSignOut: () => void;
+function SiteHeader({ screen, user, notifications, onReadNotification, onTutorial, onTheme, onNavigate, onLogin, onSignOut }: {
+  screen: Screen; user: SessionUser | null; notifications: AppNotification[]; onReadNotification: (item: AppNotification) => void; onTutorial: () => void; onTheme: () => void; onNavigate: (screen: Screen) => void; onLogin: () => void; onSignOut: () => void;
 }) {
   const account = user ? screenForRole(user.role) : "volunteer";
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -383,7 +380,7 @@ function SiteHeader({ screen, user, notifications, onReadNotification, onTutoria
   return <><header className="site-header">
     <button className="brand" onClick={() => onNavigate("landing")}><span className="brand-mark"><HeartHandshake /></span><span>VoluntarIAndo<small>encontrá dónde ayudar</small></span></button>
     <nav className="main-nav" aria-label="Navegación principal"><button className={screen === "landing" ? "active" : ""} onClick={() => onNavigate("landing")}>Inicio</button><button className={screen === "opportunities" ? "active" : ""} onClick={() => onNavigate("opportunities")}>Oportunidades</button>{user && <button className={screen === account ? "active" : ""} onClick={() => onNavigate(account)}>Mi espacio</button>}</nav>
-    <div className="header-account"><Button className="theme-toggle" variant="ghost" size="icon" onClick={onTheme} aria-label="Cambiar tema de color"><Moon className="theme-icon-light" /><Sun className="theme-icon-dark" /></Button>{user ? <>{user.role !== "admin" && <button className="tutorial-button" onClick={onTutorial} aria-label="Abrir tutorial">?</button>}<button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`${unread} notificaciones sin leer`}><span aria-hidden="true">🔔</span>{unread > 0 && <b>{unread}</b>}</button><button className="account-chip" onClick={onSwitchRole} title="Cambiar rol"><span>{user.displayName.charAt(0)}</span><b>{user.displayName}</b><UserCog /></button><Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Cerrar sesión"><LogOut /></Button></> : <Button className="soft-button" onClick={onLogin}>Ingresar</Button>}</div>
+    <div className="header-account"><Button className="theme-toggle" variant="ghost" size="icon" onClick={onTheme} aria-label="Cambiar tema de color"><Moon className="theme-icon-light" /><Sun className="theme-icon-dark" /></Button>{user ? <>{user.role !== "admin" && <button className="tutorial-button" onClick={onTutorial} aria-label="Abrir tutorial">?</button>}<button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`${unread} notificaciones sin leer`}><span aria-hidden="true">🔔</span>{unread > 0 && <b>{unread}</b>}</button><span className="account-chip" title={user.role === "volunteer" ? "Voluntario" : user.role === "organization" ? "Organización" : "Administrador"}><span>{user.displayName.charAt(0)}</span><b>{user.displayName}</b></span><Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Cerrar sesión"><LogOut /></Button></> : <Button className="soft-button" onClick={onLogin}>Ingresar</Button>}</div>
   </header><NotificationDialog notifications={notifications} open={notificationsOpen} onOpenChange={setNotificationsOpen} onRead={onReadNotification} /></>;
 }
 
@@ -871,10 +868,6 @@ function GuideAssistant({ user, profile, opportunities, promptToken, onOpenOppor
   </aside>;
 }
 
-function RoleSwitcher({ open, onOpenChange, onUser }: { open: boolean; onOpenChange: (open: boolean) => void; onUser: (user: SessionUser) => void }) {
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="auth-dialog"><DialogHeader><DialogTitle>Probar los tres caminos</DialogTitle><DialogDescription>Este selector es exclusivo del prototipo y permite recorrer cada rol sin salir.</DialogDescription></DialogHeader><div className="demo-role-grid"><button onClick={() => onUser(DEMO_USERS.volunteer)}><UserRound /><span><b>Voluntario</b><small>Perfil, postulaciones y recomendaciones</small></span></button><button onClick={() => onUser(DEMO_USERS.organization)}><Building2 /><span><b>Organización</b><small>Publicaciones, solicitudes y devoluciones</small></span></button><button onClick={() => onUser(DEMO_USERS.admin)}><Shield /><span><b>Administrador</b><small>Supervisión, corrección y moderación</small></span></button></div></DialogContent></Dialog>;
-}
-
 function Dashboard({ title, description, icon, action, children }: { title: string; description: string; icon: React.ReactNode; action: React.ReactNode; children: React.ReactNode }) {
   return <section className="dashboard-page"><div className="dashboard-hero"><span className="dashboard-icon">{icon}</span><div><span>Espacio de trabajo</span><h1>{title}</h1><p>{description}</p></div><div>{action}</div></div><div className="dashboard-body">{children}</div></section>;
 }
@@ -894,7 +887,7 @@ function AuthDialog({ open, onOpenChange, onUser }: { open: boolean; onOpenChang
   const [consent, setConsent] = useState(false);
   async function login(role: SessionUser["role"]) { setLoading(true); try { const next = await firebaseSignInWithGoogle(role); onUser(next); } catch (error) { toast.error("No pudimos iniciar sesión", { description: authErrorMessage(error) }); } finally { setLoading(false); } }
   function changeOpen(nextOpen: boolean) { if (!nextOpen) setConsent(false); onOpenChange(nextOpen); }
-  return <Dialog open={open} onOpenChange={changeOpen}><DialogContent className="auth-dialog"><DialogHeader><span className="auth-mark"><HeartHandshake /></span><DialogTitle>Ingresá con Google</DialogTitle><DialogDescription>En el primer acceso elegí el perfil que vas a utilizar.</DialogDescription></DialogHeader><label className="consent-box"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span><b>Consentimiento para la prueba</b>Entiendo que se guardarán mi nombre, correo y los datos que complete en mi perfil exclusivamente para probar el prototipo de la tesis.</span></label><Button variant="outline" onClick={() => void login("volunteer")} disabled={loading || !consent}><UserRound /> Continuar como voluntario</Button><Button variant="outline" onClick={() => void login("organization")} disabled={loading || !consent}><Building2 /> Continuar como organización</Button><Button variant="outline" onClick={() => void login("admin")} disabled={loading || !consent}><Shield /> Acceso de administrador</Button><p className="demo-hint">Recorré el prototipo sin crear datos reales y cambiá de rol cuando quieras:</p><div className="demo-role-grid"><button onClick={() => onUser(DEMO_USERS.volunteer)}><UserRound /><span><b>Voluntario demo</b><small>Perfil y recomendaciones</small></span></button><button onClick={() => onUser(DEMO_USERS.organization)}><Building2 /><span><b>Organización demo</b><small>Oportunidades y solicitudes</small></span></button><button onClick={() => onUser(DEMO_USERS.admin)}><Shield /><span><b>Administrador demo</b><small>Supervisión y moderación</small></span></button></div></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={changeOpen}><DialogContent className="auth-dialog"><DialogHeader><span className="auth-mark"><HeartHandshake /></span><DialogTitle>Ingresá con Google</DialogTitle><DialogDescription>En el primer acceso elegí el perfil que vas a utilizar.</DialogDescription></DialogHeader><label className="consent-box"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span><b>Consentimiento para la prueba</b>Entiendo que se guardarán mi nombre, correo y los datos que complete en mi perfil exclusivamente para probar el prototipo de la tesis.</span></label><Button variant="outline" onClick={() => void login("volunteer")} disabled={loading || !consent}><UserRound /> Continuar como voluntario</Button><Button variant="outline" onClick={() => void login("organization")} disabled={loading || !consent}><Building2 /> Continuar como organización</Button><Button variant="outline" onClick={() => void login("admin")} disabled={loading || !consent}><Shield /> Acceso de administrador</Button></DialogContent></Dialog>;
 }
 
 function VolunteerProfileDialog({ user, profile, open, onOpenChange, onSaved, mandatory = false }: { user: SessionUser; profile: VolunteerProfile; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (profile: VolunteerProfile) => void; mandatory?: boolean }) {

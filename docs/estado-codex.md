@@ -19,6 +19,7 @@ Actualizado: 5 de noviembre de 2026. Rama: `codex/e4-core`.
 - Cuatro videos de la landing renovados en H.264, 1280×720 y 15 segundos, con Vía, textos integrados y posters actualizados; generador reproducible conservado en `scripts/generate-tutorial-videos.py`.
 - Bienvenida inicial a pantalla completa: Vía presenta y explica los cuatro videos antes del perfil obligatorio, con opción de omitir y adaptación móvil.
 - Acceso con Google corregido para usar el dominio oficial de autenticación `red-cercana-tao.firebaseapp.com` desde el hosting público.
+- Inicio de sesión simplificado: se retiraron los accesos demo y el selector de roles ficticios; quedan únicamente las tres entradas reales con Google.
 
 ## Verificado
 
