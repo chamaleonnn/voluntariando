@@ -176,6 +176,7 @@ export type Invitation = {
   opportunityTitle: string;
   organizationId: string;
   organizationName: string;
+  organizationContact?: string;
   userId: string;
   userName: string;
   message: string;

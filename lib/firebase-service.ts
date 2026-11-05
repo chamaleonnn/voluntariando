@@ -256,6 +256,12 @@ export function observeVisibleVolunteerProfiles(callback: (profiles: VolunteerPr
   return onSnapshot(source, (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as VolunteerProfile))), onError);
 }
 
+export function observeVolunteerCommunity(callback: (profiles: VolunteerProfile[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  const source = query(collection(db, "volunteerProfiles"), where("visibleToVolunteers", "==", true));
+  return onSnapshot(source, (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as VolunteerProfile))), onError);
+}
+
 export function observeInvitations(user: SessionUser, callback: (items: Invitation[]) => void, onError: (error: Error) => void) {
   if (!db || user.isDemo) return () => undefined;
   const field = user.role === "organization" ? "organizationId" : "userId";
@@ -273,7 +279,7 @@ export async function createInvitation(actor: SessionUser, organization: Organiz
   const batch = writeBatch(firestore);
   batch.set(invitationRef, {
     opportunityId: opportunity.id, opportunityTitle: opportunity.title,
-    organizationId: organization.id, organizationName: organization.name,
+    organizationId: organization.id, organizationName: organization.name, organizationContact: organization.contact ?? organization.email,
     userId: volunteer.id, userName: volunteer.name, message, status: "pending",
     createdAt: serverTimestamp(),
   });
@@ -284,7 +290,7 @@ export async function createInvitation(actor: SessionUser, organization: Organiz
     createdAt: serverTimestamp(),
   });
   await batch.commit();
-  return { id, opportunityId: opportunity.id, opportunityTitle: opportunity.title, organizationId: organization.id, organizationName: organization.name, userId: volunteer.id, userName: volunteer.name, message, status: "pending" as const, createdAt: new Date().toISOString() };
+  return { id, opportunityId: opportunity.id, opportunityTitle: opportunity.title, organizationId: organization.id, organizationName: organization.name, organizationContact: organization.contact ?? organization.email, userId: volunteer.id, userName: volunteer.name, message, status: "pending" as const, createdAt: new Date().toISOString() };
 }
 
 export async function updateInvitationStatus(actor: SessionUser, invitation: Invitation, status: "accepted" | "rejected") {

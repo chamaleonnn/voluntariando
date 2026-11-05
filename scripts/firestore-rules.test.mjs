@@ -94,6 +94,12 @@ before(async () => {
         verifiedSkills: {},
         experiences: [],
         completedExperiences: 0,
+        visibleToOrganizations: true,
+        visibleToVolunteers: true,
+      }),
+      setDoc(doc(database, "volunteerProfiles/private-vol"), {
+        name: "Perfil privado", verifiedSkills: {}, experiences: [], completedExperiences: 0,
+        visibleToOrganizations: false, visibleToVolunteers: false,
       }),
       setDoc(doc(database, "invitations/inv"), {
         organizationId: "org",
@@ -316,4 +322,14 @@ test("una ausencia requiere organización vinculada y confirmación administrati
   reviewBatch.update(doc(adminDb, "matches/absence_match"), { status: "absent", reviewedAt: serverTimestamp(), reviewedBy: "admin" });
   reviewBatch.set(doc(adminDb, "notifications/absence_resolved_absence_match"), { recipientId: "vol", actorId: "admin", absenceReportId: "absence_match", type: "absence_resolved", title: "Ausencia confirmada", message: "1 de 3", read: false });
   await assertSucceeds(reviewBatch.commit());
+});
+
+test("la visibilidad del perfil se respeta para organizaciones y voluntarios", async () => {
+  const organization = testEnvironment.authenticatedContext("org", { email: "organizacion@example.com" });
+  await assertSucceeds(getDoc(doc(organization.firestore(), "volunteerProfiles/vol")));
+  await assertFails(getDoc(doc(organization.firestore(), "volunteerProfiles/private-vol")));
+
+  const volunteer = testEnvironment.authenticatedContext("other", { email: "otro@example.com" });
+  await assertSucceeds(getDoc(doc(volunteer.firestore(), "volunteerProfiles/vol")));
+  await assertFails(getDoc(doc(volunteer.firestore(), "volunteerProfiles/private-vol")));
 });

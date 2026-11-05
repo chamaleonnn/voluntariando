@@ -50,10 +50,12 @@ service cloud.firestore {
 
     match /volunteerProfiles/{userId} {
       allow create: if owns(userId);
-      allow read: if owns(userId) || userRole() == "organization" || isAdmin();
+      allow read: if owns(userId) || isAdmin()
+        || (userRole() == "organization" && resource.data.visibleToOrganizations == true)
+        || (userRole() == "volunteer" && resource.data.visibleToVolunteers == true);
       allow update: if (
         owns(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "name", "initials", "location", "bio", "interests", "declaredSkills", "availability", "socialLinks", "updatedAt"
+          "name", "initials", "location", "bio", "interests", "declaredSkills", "availability", "socialLinks", "visibleToOrganizations", "visibleToVolunteers", "updatedAt"
         ])
       ) || (
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
