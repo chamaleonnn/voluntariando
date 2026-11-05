@@ -70,6 +70,7 @@ export type Application = {
   status: "pending" | "accepted" | "rejected" | "cancelled";
   createdAt: string;
   completedAt?: string;
+  absentAt?: string;
   source?: "application" | "invitation";
   matchId?: string;
 };
@@ -121,11 +122,31 @@ export type AppNotification = {
   applicationId?: string;
   invitationId?: string;
   feedbackId?: string;
-  type: "application_received" | "application_accepted" | "application_rejected" | "proposal_received" | "proposal_accepted" | "proposal_rejected" | "feedback_warning";
+  absenceReportId?: string;
+  type: "application_received" | "application_accepted" | "application_rejected" | "proposal_received" | "proposal_accepted" | "proposal_rejected" | "feedback_warning" | "absence_reported" | "absence_resolved";
   title: string;
   message: string;
   read: boolean;
   createdAt: string;
+};
+
+export type AbsenceReport = {
+  id: string;
+  matchId: string;
+  opportunityId: string;
+  opportunityTitle: string;
+  organizationId: string;
+  organizationName: string;
+  volunteerId: string;
+  volunteerName: string;
+  reportedBy: string;
+  reportedByEmail: string;
+  reason: string;
+  status: "pending_review" | "confirmed" | "dismissed";
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  reviewReason?: string;
 };
 
 export type ExperienceFeedback = {
@@ -161,6 +182,7 @@ export type Invitation = {
   status: "pending" | "accepted" | "rejected";
   createdAt: string;
   completedAt?: string;
+  absentAt?: string;
 };
 
 export type Organization = {

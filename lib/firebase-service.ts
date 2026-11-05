@@ -26,7 +26,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "@/lib/firebase";
-import type { AppNotification, Application, ExperienceFeedback, Invitation, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
+import type { AbsenceReport, AppNotification, Application, ExperienceFeedback, Invitation, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
 
 function requireDb() {
   if (!db) throw new Error("Firebase todavía no está configurado.");
@@ -407,6 +407,71 @@ export function observeAdminFeedback(callback: (items: ExperienceFeedback[]) => 
     const items = snapshot.docs.map((item) => mapDoc<ExperienceFeedback>(item));
     callback(items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
   }, onError);
+}
+
+export function observeAdminAbsenceReports(callback: (items: AbsenceReport[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  return onSnapshot(collection(db, "absenceReports"), (snapshot) => {
+    callback(snapshot.docs.map((item) => mapDoc<AbsenceReport>(item)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+  }, onError);
+}
+
+export function observeAbsenceReports(userId: string, callback: (items: AbsenceReport[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  const source = query(collection(db, "absenceReports"), where("volunteerId", "==", userId));
+  return onSnapshot(source, (snapshot) => callback(snapshot.docs.map((item) => mapDoc<AbsenceReport>(item)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))), onError);
+}
+
+export async function recordAbsence(application: Application, actor: SessionUser, organization: Organization, reason: string) {
+  const firestore = requireDb();
+  const matchId = application.matchId ?? `${application.opportunityId}_${application.userId}`;
+  await runTransaction(firestore, async (transaction) => {
+    const participationRef = doc(firestore, "participations", matchId);
+    if ((await transaction.get(participationRef)).exists()) throw new Error("Esta participación ya tiene un resultado registrado.");
+    const reportRef = doc(firestore, "absenceReports", matchId);
+    transaction.update(doc(firestore, "matches", matchId), { status: "absence_pending_review", absentAt: serverTimestamp() });
+    transaction.set(participationRef, {
+      matchId, opportunityId: application.opportunityId, organizationId: application.organizationId,
+      userId: application.userId, status: "absence_pending_review", reportedBy: actor.uid, reportedAt: serverTimestamp(),
+    });
+    transaction.set(reportRef, {
+      matchId, opportunityId: application.opportunityId, opportunityTitle: application.opportunityTitle,
+      organizationId: application.organizationId, organizationName: organization.name,
+      volunteerId: application.userId, volunteerName: application.userName,
+      reportedBy: actor.uid, reportedByEmail: actor.email, reason, status: "pending_review", createdAt: serverTimestamp(),
+    });
+    if (application.source === "invitation") transaction.update(doc(firestore, "invitations", application.id), { absentAt: serverTimestamp() });
+    else transaction.update(doc(firestore, "applications", application.id), { absentAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    transaction.set(doc(firestore, "notifications", `absence_reported_${matchId}`), {
+      recipientId: application.userId, actorId: actor.uid, absenceReportId: matchId,
+      type: "absence_reported", title: "Ausencia informada",
+      message: `La organización informó una ausencia en ${application.opportunityTitle}. Administración la revisará antes de aplicar consecuencias.`,
+      read: false, createdAt: serverTimestamp(),
+    });
+  });
+  return { ...application, absentAt: new Date().toISOString() };
+}
+
+export async function adminModerateAbsence(actor: SessionUser, report: AbsenceReport, status: "confirmed" | "dismissed", reason: string, suspensionDays: number) {
+  const firestore = requireDb();
+  const snapshot = await getDocs(collection(firestore, "absenceReports"));
+  const previousConfirmed = snapshot.docs.map((item) => mapDoc<AbsenceReport>(item)).filter((item) => item.id !== report.id && item.volunteerId === report.volunteerId && item.status === "confirmed").length;
+  const count = status === "confirmed" ? previousConfirmed + 1 : previousConfirmed;
+  const shouldSuspend = status === "confirmed" && count >= 3;
+  const batch = writeBatch(firestore);
+  batch.update(doc(firestore, "absenceReports", report.id), { status, reviewedAt: serverTimestamp(), reviewedBy: actor.uid, reviewReason: reason });
+  batch.update(doc(firestore, "participations", report.matchId), { status: status === "confirmed" ? "absent" : "absence_dismissed", reviewedAt: serverTimestamp(), reviewedBy: actor.uid });
+  batch.update(doc(firestore, "matches", report.matchId), { status: status === "confirmed" ? "absent" : "confirmed", reviewedAt: serverTimestamp(), reviewedBy: actor.uid });
+  batch.set(doc(firestore, "notifications", `absence_resolved_${report.id}`), {
+    recipientId: report.volunteerId, actorId: actor.uid, absenceReportId: report.id, type: "absence_resolved",
+    title: status === "dismissed" ? "Ausencia descartada" : shouldSuspend ? "Suspensión temporal" : "Ausencia confirmada",
+    message: status === "dismissed" ? "Administración descartó el reporte de ausencia." : shouldSuspend ? `Se confirmaron tres ausencias. La cuenta fue suspendida por ${Math.max(1, suspensionDays)} días.` : `Ausencias confirmadas: ${count} de 3.`,
+    read: false, createdAt: serverTimestamp(),
+  });
+  if (shouldSuspend) batch.update(doc(firestore, "users", report.volunteerId), { status: "suspended", suspendedUntil: new Date(Date.now() + Math.max(1, suspensionDays) * 86400000), suspensionReason: "Tres ausencias confirmadas", moderatedBy: actor.uid, updatedAt: serverTimestamp() });
+  batch.set(doc(collection(firestore, "adminActions")), { actorId: actor.uid, actorEmail: actor.email, action: status === "confirmed" ? "confirm_absence" : "dismiss_absence", targetType: "absenceReport", targetId: report.id, reason, createdAt: serverTimestamp() });
+  await batch.commit();
+  return { report: { ...report, status, reviewedBy: actor.uid, reviewedAt: new Date().toISOString(), reviewReason: reason }, suspended: shouldSuspend, confirmedCount: count };
 }
 
 // Una devolución negativa solo produce efectos luego de la revisión de administración.

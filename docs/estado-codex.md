@@ -11,10 +11,11 @@ Actualizado: 5 de noviembre de 2026. Rama: `codex/e4-core`.
 - Validación administrativa de organizaciones: alta pendiente y publicación bloqueada hasta aprobación.
 - Devoluciones con aspectos a mejorar: revisión administrativa, advertencia privada, conteo de 90 días y suspensión temporal al segundo caso confirmado.
 - Reactivación segura al vencer una suspensión temporal.
+- Ausencias sobre participaciones confirmadas: reporte no duplicable, revisión administrativa, historial visible, avisos privados y suspensión temporal al tercer caso confirmado. La interfaz recuerda el aviso mínimo de 6 horas.
 
 ## Verificado
 
-- Firestore Emulator: 9 pruebas aprobadas, 0 fallidas.
+- Firestore Emulator: 10 pruebas aprobadas, 0 fallidas.
 - Motor de recomendaciones: 6 pruebas aprobadas, 0 fallidas, incluida coherencia semántica con pesos invariables.
 - ESLint específico de archivos modificados: aprobado.
 - Sintaxis de Firebase Function: aprobada.
@@ -25,6 +26,5 @@ Actualizado: 5 de noviembre de 2026. Rama: `codex/e4-core`.
 
 ## Próximo bloque
 
-- Ausencias y avisos de participación.
 - Pulido móvil y accesibilidad.
 - Mejoras visuales y tutoriales interactivos de Vía pospuestos; conservar los cuatro videos actuales.

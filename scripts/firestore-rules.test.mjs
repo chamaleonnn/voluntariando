@@ -109,6 +109,9 @@ before(async () => {
         source: "invitation",
         status: "confirmed",
       }),
+      setDoc(doc(database, "matches/absence_match"), {
+        organizationId: "org", opportunityId: "opp", userId: "vol", status: "confirmed",
+      }),
       setDoc(doc(database, "feedback/negative-review"), {
         matchId: "previous-match",
         opportunityId: "opp",
@@ -290,4 +293,27 @@ test("una cuenta solo puede reactivarse a sí misma cuando la suspensión ya ven
     suspendedUntil: new Date("2030-01-01T00:00:00.000Z"),
     updatedAt: serverTimestamp(),
   }));
+});
+
+test("una ausencia requiere organización vinculada y confirmación administrativa", async () => {
+  const organization = testEnvironment.authenticatedContext("org", { email: "organizacion@example.com" });
+  const database = organization.firestore();
+  const reportBatch = writeBatch(database);
+  reportBatch.update(doc(database, "matches/absence_match"), { status: "absence_pending_review" });
+  reportBatch.set(doc(database, "participations/absence_match"), { matchId: "absence_match", opportunityId: "opp", organizationId: "org", userId: "vol", status: "absence_pending_review", reportedBy: "org" });
+  reportBatch.set(doc(database, "absenceReports/absence_match"), { matchId: "absence_match", opportunityId: "opp", organizationId: "org", volunteerId: "vol", reportedBy: "org", reason: "No asistió a la actividad acordada", status: "pending_review" });
+  reportBatch.set(doc(database, "notifications/absence_reported_absence_match"), { recipientId: "vol", actorId: "org", absenceReportId: "absence_match", type: "absence_reported", title: "Ausencia informada", message: "Pendiente de revisión", read: false });
+  await assertSucceeds(reportBatch.commit());
+
+  const outsider = testEnvironment.authenticatedContext("other", { email: "otro@example.com" });
+  await assertFails(getDoc(doc(outsider.firestore(), "absenceReports/absence_match")));
+
+  const admin = testEnvironment.authenticatedContext("admin", { email: "admin@example.com" });
+  const adminDb = admin.firestore();
+  const reviewBatch = writeBatch(adminDb);
+  reviewBatch.update(doc(adminDb, "absenceReports/absence_match"), { status: "confirmed", reviewedAt: serverTimestamp(), reviewedBy: "admin", reviewReason: "Corroborada" });
+  reviewBatch.update(doc(adminDb, "participations/absence_match"), { status: "absent", reviewedAt: serverTimestamp(), reviewedBy: "admin" });
+  reviewBatch.update(doc(adminDb, "matches/absence_match"), { status: "absent", reviewedAt: serverTimestamp(), reviewedBy: "admin" });
+  reviewBatch.set(doc(adminDb, "notifications/absence_resolved_absence_match"), { recipientId: "vol", actorId: "admin", absenceReportId: "absence_match", type: "absence_resolved", title: "Ausencia confirmada", message: "1 de 3", read: false });
+  await assertSucceeds(reviewBatch.commit());
 });
