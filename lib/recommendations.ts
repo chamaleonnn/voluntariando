@@ -20,25 +20,24 @@ function normalize(value: string) {
   return value.toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-function related(left: string, right: string, semanticRelationships: SemanticRelationship[] = []) {
+function related(left: string, right: string) {
   const a = normalize(left);
   const b = normalize(right);
   if (!a || !b) return false;
   if (a.includes(b) || b.includes(a)) return true;
-  if (semanticRelationships.some((item) => normalize(item.profileEvidence) === a && normalize(item.opportunityEvidence) === b)) return true;
   return semanticGroups.some((group) => {
     const normalized = group.map(normalize);
     return normalized.some((term) => a.includes(term)) && normalized.some((term) => b.includes(term));
   });
 }
 
-function overlap(source: string[], target: string[], semanticRelationships: SemanticRelationship[] = []) {
+function overlap(source: string[], target: string[]) {
   if (!target.length) return 0;
-  const hits = target.filter((item) => source.some((candidate) => related(candidate, item, semanticRelationships))).length;
+  const hits = target.filter((item) => source.some((candidate) => related(candidate, item))).length;
   return Math.round((hits / target.length) * 100);
 }
 
-export function calculateCompatibility(profile: VolunteerProfile, opportunity: Opportunity, semanticRelationships: SemanticRelationship[] = []): { score: number; breakdown: Breakdown; explanation: string } {
+export function calculateCompatibility(profile: VolunteerProfile, opportunity: Opportunity): { score: number; breakdown: Breakdown; explanation: string } {
   const declared = profile.declaredSkills ?? [];
   const verified = Object.entries(profile.verifiedSkills ?? {})
     .filter(([, count]) => count > 0)
@@ -46,22 +45,22 @@ export function calculateCompatibility(profile: VolunteerProfile, opportunity: O
   const required = opportunity.requiredSkills ?? [];
 
   // Si existen ambas fuentes, lo verificado pesa más. Un perfil nuevo no es castigado por no tener experiencia todavía.
-  const declaredScore = overlap(declared, required, semanticRelationships);
-  const verifiedScore = overlap(verified, required, semanticRelationships);
+  const declaredScore = overlap(declared, required);
+  const verifiedScore = overlap(verified, required);
   const skills = !required.length
     ? 100
     : declared.length && verified.length
       ? Math.round(declaredScore * 0.35 + verifiedScore * 0.65)
       : verified.length ? verifiedScore : declaredScore;
-  const interests = overlap(profile.interests, [opportunity.category], semanticRelationships);
-  const availability = overlap(profile.availability ?? [], opportunity.availability ?? [], semanticRelationships);
+  const interests = overlap(profile.interests, [opportunity.category]);
+  const availability = overlap(profile.availability ?? [], opportunity.availability ?? []);
   const location = opportunity.modality === "Virtual"
     ? 100
-    : related(profile.location, opportunity.province, semanticRelationships) || related(profile.location, opportunity.neighborhood, semanticRelationships)
+    : related(profile.location, opportunity.province) || related(profile.location, opportunity.neighborhood)
       ? 100
       : opportunity.modality === "Híbrida" ? 60 : 0;
   const experienceText = (profile.experiences ?? []).flatMap((item) => [...item.tasks, ...item.skills]);
-  const experience = overlap(experienceText, [...required, opportunity.category], semanticRelationships);
+  const experience = overlap(experienceText, [...required, opportunity.category]);
 
   const breakdown = { skills, interests, availability, location, experience };
   const score = Math.round(

@@ -850,7 +850,8 @@ function GuideAssistant({ user, profile, opportunities, promptToken, onOpenOppor
     try {
       const result = await analyzeSemanticCompatibility(profile, suggested);
       setAiExplanation(result.explanation);
-      const compatibility = calculateCompatibility(profile, suggested, result.relationships);
+      // OpenAI explica relaciones; el porcentaje siempre sale del motor determinista local.
+      const compatibility = calculateCompatibility(profile, suggested);
       setSemanticSuggestion({ ...suggested, compatibility: compatibility.score, compatibilityBreakdown: compatibility.breakdown, recommendedBecause: result.explanation || compatibility.explanation });
     } catch {
       // Si la Function no está desplegada, Vía conserva la explicación reproducible del motor local.

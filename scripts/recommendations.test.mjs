@@ -67,16 +67,17 @@ test("datos sin relación producen cero en cada criterio", () => {
   assert.equal(result.score, 0);
 });
 
-test("una relación semántica validada usa los mismos pesos deterministas", () => {
+test("una relación semántica de OpenAI no modifica el porcentaje determinista", () => {
   const candidate = profile({ declaredSkills: ["Facilitación de grupos"], verifiedSkills: {}, experiences: [] });
-  const withoutSemantic = calculateCompatibility(candidate, opportunity);
-  const withSemantic = calculateCompatibility(candidate, opportunity, [{
+  const deterministic = calculateCompatibility(candidate, opportunity);
+  const openAiRelationships = [{
     profileEvidence: "Facilitación de grupos",
     opportunityEvidence: "Naturaleza y ambiente",
     relation: "Puede facilitar actividades ambientales grupales.",
-  }]);
+  }];
 
-  assert.equal(withoutSemantic.score, 55);
-  assert.deepEqual(withSemantic.breakdown, { skills: 100, interests: 100, availability: 100, location: 100, experience: 0 });
-  assert.equal(withSemantic.score, 85);
+  // La salida de OpenAI se conserva para la explicación, pero no se entrega al cálculo.
+  assert.equal(openAiRelationships.length, 1);
+  assert.deepEqual(deterministic.breakdown, { skills: 0, interests: 100, availability: 100, location: 100, experience: 0 });
+  assert.equal(deterministic.score, 55);
 });
