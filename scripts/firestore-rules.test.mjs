@@ -169,6 +169,24 @@ test("un usuario ajeno no puede marcar como completada una invitación", async (
   await assertFails(updateDoc(invitation, { completedAt: serverTimestamp() }));
 });
 
+test("un tercero no puede leer una participación ajena", async () => {
+  const outsider = testEnvironment.authenticatedContext("other", {
+    email: "otro@example.com",
+  });
+  const participation = doc(outsider.firestore(), "participations/invitation_inv");
+
+  await assertFails(getDoc(participation));
+});
+
+test("un tercero no puede modificar una participación ajena", async () => {
+  const outsider = testEnvironment.authenticatedContext("other", {
+    email: "otro@example.com",
+  });
+  const participation = doc(outsider.firestore(), "participations/invitation_inv");
+
+  await assertFails(updateDoc(participation, { status: "cancelled" }));
+});
+
 test("el voluntario no puede acreditarse habilidades por su cuenta", async () => {
   const volunteer = testEnvironment.authenticatedContext("vol", {
     email: "voluntario@example.com",

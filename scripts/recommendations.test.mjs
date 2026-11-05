@@ -66,3 +66,17 @@ test("datos sin relación producen cero en cada criterio", () => {
   assert.deepEqual(result.breakdown, { skills: 0, interests: 0, availability: 0, location: 0, experience: 0 });
   assert.equal(result.score, 0);
 });
+
+test("una relación semántica validada usa los mismos pesos deterministas", () => {
+  const candidate = profile({ declaredSkills: ["Facilitación de grupos"], verifiedSkills: {}, experiences: [] });
+  const withoutSemantic = calculateCompatibility(candidate, opportunity);
+  const withSemantic = calculateCompatibility(candidate, opportunity, [{
+    profileEvidence: "Facilitación de grupos",
+    opportunityEvidence: "Naturaleza y ambiente",
+    relation: "Puede facilitar actividades ambientales grupales.",
+  }]);
+
+  assert.equal(withoutSemantic.score, 55);
+  assert.deepEqual(withSemantic.breakdown, { skills: 100, interests: 100, availability: 100, location: 100, experience: 0 });
+  assert.equal(withSemantic.score, 85);
+});
