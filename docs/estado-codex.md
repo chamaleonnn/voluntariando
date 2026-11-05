@@ -17,6 +17,8 @@ Actualizado: 5 de noviembre de 2026. Rama: `codex/e4-core`.
 - Validador local de respuestas semánticas: limita a cinco relaciones, exige estructura válida y descarta evidencias inventadas antes de afectar el motor.
 - Vía visual: cinco estados animados, minimización, comportamiento móvil y tutorial de siete pasos por rol sobre componentes reales.
 - Cuatro videos de la landing renovados en H.264, 1280×720 y 15 segundos, con Vía, textos integrados y posters actualizados; generador reproducible conservado en `scripts/generate-tutorial-videos.py`.
+- Bienvenida inicial a pantalla completa: Vía presenta y explica los cuatro videos antes del perfil obligatorio, con opción de omitir y adaptación móvil.
+- Acceso con Google corregido para usar el dominio oficial de autenticación `red-cercana-tao.firebaseapp.com` desde el hosting público.
 
 ## Verificado
 

@@ -131,6 +131,7 @@ export default function Home() {
   const [absenceReports, setAbsenceReports] = useState<AbsenceReport[]>([]);
   const [volunteers, setVolunteers] = useState<VolunteerProfile[]>(DEMO_VOLUNTEERS);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [viaWelcomeOpen, setViaWelcomeOpen] = useState(false);
   const [viaPromptToken, setViaPromptToken] = useState(0);
   useEffect(() => {
     const saved = window.localStorage.getItem("red-cercana-theme");
@@ -169,7 +170,13 @@ export default function Home() {
     setOrganizationProfile(null);
     if (nextUser?.role === "volunteer") setProfile(nextUser.isDemo ? DEMO_VOLUNTEERS[0] : emptyVolunteerProfile(nextUser));
     setUser(nextUser);
-    if (nextUser) setScreen(screenForRole(nextUser.role));
+    if (nextUser) {
+      setScreen(screenForRole(nextUser.role));
+      const welcomeKey = `voluntariando-via-welcome-${nextUser.uid}-v1`;
+      setViaWelcomeOpen(nextUser.role !== "admin" && !window.localStorage.getItem(welcomeKey));
+    } else {
+      setViaWelcomeOpen(false);
+    }
   }), []);
 
   useEffect(() => {
@@ -252,6 +259,8 @@ export default function Home() {
     setAuthOpen(false);
     setRoleOpen(false);
     setScreen(screenForRole(nextUser.role));
+    const welcomeKey = `voluntariando-via-welcome-${nextUser.uid}-v1`;
+    setViaWelcomeOpen(nextUser.role !== "admin" && !window.localStorage.getItem(welcomeKey));
     toast.success(`Entraste como ${nextUser.displayName}`);
   }
 
@@ -262,6 +271,7 @@ export default function Home() {
     setProfileLoadedFor(null);
     setOrganizationLoadedFor(null);
     setOrganizationProfile(null);
+    setViaWelcomeOpen(false);
     setScreen("landing");
   }
 
@@ -320,6 +330,11 @@ export default function Home() {
     if (showVia && user?.role === "volunteer") setViaPromptToken((current) => current + 1);
   }
 
+  function finishViaWelcome() {
+    if (user) window.localStorage.setItem(`voluntariando-via-welcome-${user.uid}-v1`, "done");
+    setViaWelcomeOpen(false);
+  }
+
   return (
     <main className="site-shell">
       <div className="ambient-background" aria-hidden="true"><span className="ambient-orb ambient-orb-one" /><span className="ambient-orb ambient-orb-two" /><span className="ambient-orb ambient-orb-three" /></div>
@@ -347,8 +362,9 @@ export default function Home() {
       <OpportunityDialog opportunity={selectedOpportunity} user={user} applications={applications} open={Boolean(selectedOpportunity)} onOpenChange={(open) => !open && setSelectedOpportunity(null)} onApply={apply} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onUser={loginAs} />
       <RoleSwitcher open={roleOpen} onOpenChange={setRoleOpen} onUser={loginAs} />
-      {user?.role === "volunteer" && !user.isDemo && <VolunteerProfileDialog user={user} profile={profile} open={volunteerOnboarding} onOpenChange={() => undefined} onSaved={setProfile} mandatory />}
-      {user?.role === "organization" && !user.isDemo && <OrganizationProfileDialog user={user} organization={organization} open={organizationOnboarding} onOpenChange={() => undefined} onSaved={(next) => { setOrganizationProfile(next); setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next]); }} mandatory />}
+      {user?.role === "volunteer" && !user.isDemo && <VolunteerProfileDialog user={user} profile={profile} open={volunteerOnboarding && !viaWelcomeOpen} onOpenChange={() => undefined} onSaved={setProfile} mandatory />}
+      {user?.role === "organization" && !user.isDemo && <OrganizationProfileDialog user={user} organization={organization} open={organizationOnboarding && !viaWelcomeOpen} onOpenChange={() => undefined} onSaved={(next) => { setOrganizationProfile(next); setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next]); }} mandatory />}
+      {user && user.role !== "admin" && <ViaVideoWelcome role={user.role} open={viaWelcomeOpen} onFinish={finishViaWelcome} />}
       {user && user.role !== "admin" && <WelcomeTutorial role={user.role} open={tutorialOpen} onOpenChange={setTutorialOpen} onFinish={finishTutorial} />}
     </main>
   );
@@ -413,6 +429,35 @@ type ViaState = "greeting" | "explanation" | "waiting" | "thinking" | "celebrati
 function ViaAvatar({ state, size = 76 }: { state: ViaState; size?: number }) {
   const symbol = state === "thinking" ? "···" : state === "celebration" ? "✦" : state === "greeting" ? "¡Hola!" : state === "explanation" ? "i" : "";
   return <span className={`via-avatar via-${state}`} style={{ width: size, height: size }} aria-hidden="true"><Image src="/via-mecha.png" width={size} height={size} alt="" />{symbol && <i>{symbol}</i>}</span>;
+}
+
+const VIA_VIDEO_STEPS = [
+  { title: "Creá y completá tu perfil", text: "Primero contame tus intereses, habilidades y ubicación. Con esos datos puedo ayudarte a encontrar oportunidades que tengan sentido para vos.", videoSrc: "/videos/crear-perfil.mp4" },
+  { title: "Entendé tus recomendaciones", text: "Cada porcentaje combina cinco criterios. Las oportunidades aparecen ordenadas y siempre podés ver por qué coinciden con tu perfil.", videoSrc: "/videos/recibir-recomendaciones.mp4" },
+  { title: "Mostrá interés y vinculáte", text: "Cuando una propuesta te guste, podés mostrar interés. La organización responde y el contacto se habilita después de la aceptación.", videoSrc: "/videos/mostrar-interes.mp4" },
+  { title: "Sumá una experiencia verificada", text: "Al finalizar, la organización registra las tareas y habilidades observadas. Eso mejora tu trayectoria y las próximas recomendaciones.", videoSrc: "/videos/sumar-experiencia.mp4" },
+];
+
+function ViaVideoWelcome({ role, open, onFinish }: { role: "volunteer" | "organization"; open: boolean; onFinish: () => void }) {
+  const [step, setStep] = useState(0);
+  if (!open) return null;
+  const finish = () => { setStep(0); onFinish(); };
+  const intro = step === 0;
+  const current = VIA_VIDEO_STEPS[step - 1];
+  const last = step === VIA_VIDEO_STEPS.length;
+  return <div className="via-welcome-backdrop" role="dialog" aria-modal="true" aria-label="Bienvenida de Vía">
+    <section className={`via-welcome ${intro ? "intro" : "video"}`}>
+      {intro ? <>
+        <div className="via-welcome-character"><ViaAvatar state="greeting" size={330} /></div>
+        <div className="via-welcome-copy"><span>¡Hola! Soy Vía</span><h1>Te voy a acompañar en Voluntariando.</h1><p>{role === "volunteer" ? "Antes de completar tu perfil, quiero mostrarte en cuatro videos cortos cómo vas a encontrar oportunidades, vincularte y construir tu trayectoria." : "Antes de completar el perfil de tu organización, quiero mostrarte el recorrido que conecta personas, oportunidades y experiencias verificadas."}</p><div className="via-welcome-actions"><Button variant="ghost" onClick={finish}>Omitir</Button><Button size="lg" onClick={() => setStep(1)}>Conocer la app <ArrowRight /></Button></div></div>
+      </> : <>
+        <div className="via-welcome-video"><video key={current.videoSrc} src={current.videoSrc} controls autoPlay muted playsInline preload="metadata">Tu navegador no puede reproducir este video.</video></div>
+        <div className="via-welcome-explanation"><ViaAvatar state={last ? "celebration" : "explanation"} size={150} /><div><span>Vía explica · {step} de {VIA_VIDEO_STEPS.length}</span><h2>{current.title}</h2><p>{current.text}</p></div></div>
+        <div className="via-welcome-progress" aria-label={`Video ${step} de ${VIA_VIDEO_STEPS.length}`}>{VIA_VIDEO_STEPS.map((item, index) => <i key={item.title} className={index < step ? "active" : ""} />)}</div>
+        <div className="via-welcome-actions"><Button variant="ghost" onClick={finish}>Omitir</Button>{step > 1 && <Button variant="outline" onClick={() => setStep((value) => value - 1)}>Anterior</Button>}<Button onClick={() => last ? finish() : setStep((value) => value + 1)}>{last ? "Empezar" : "Siguiente"}</Button></div>
+      </>}
+    </section>
+  </div>;
 }
 
 function Landing({ opportunities, reviews, reviewPhotos, user, onExplore, onLogin }: { opportunities: Opportunity[]; reviews: Review[]; reviewPhotos: ReviewPhoto[]; user: SessionUser | null; onExplore: () => void; onLogin: () => void }) {
