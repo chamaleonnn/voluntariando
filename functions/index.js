@@ -15,30 +15,67 @@ export const analyzeSemanticCompatibility = onCall({
   if (!profile || !opportunity) throw new HttpsError("invalid-argument", "Faltan datos del perfil o de la oportunidad.");
 
   const client = new OpenAI({ apiKey: openAiKey.value() });
+  const volunteer = {
+    interests: profile.interests ?? [], declaredSkills: profile.declaredSkills ?? [],
+    verifiedSkills: Object.keys(profile.verifiedSkills ?? {}), availability: profile.availability ?? [],
+    location: profile.location ?? "",
+    experiences: (profile.experiences ?? []).flatMap((item) => [...(item.tasks ?? []), ...(item.skills ?? [])]),
+  };
+  const target = {
+    category: opportunity.category ?? "", tasks: opportunity.tasks ?? [],
+    requiredSkills: opportunity.requiredSkills ?? [], availability: opportunity.availability ?? [],
+    province: opportunity.province ?? "", neighborhood: opportunity.neighborhood ?? "", modality: opportunity.modality ?? "",
+  };
   const response = await client.responses.create({
     model: "gpt-5-mini",
-    max_output_tokens: 180,
+    max_output_tokens: 350,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "semantic_compatibility",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            relationships: {
+              type: "array",
+              maxItems: 5,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  profileEvidence: { type: "string" },
+                  opportunityEvidence: { type: "string" },
+                  relation: { type: "string" },
+                },
+                required: ["profileEvidence", "opportunityEvidence", "relation"],
+              },
+            },
+          },
+          required: ["relationships"],
+        },
+      },
+    },
     input: [
       {
         role: "system",
-        content: "Analizá compatibilidad de voluntariado. Identificá solamente relaciones semánticas respaldadas por los datos recibidos. No inventes habilidades ni experiencias y no calcules ni modifiques porcentajes. Respondé en español argentino con una explicación breve.",
+        content: "Identificá relaciones semánticas respaldadas por los datos recibidos. profileEvidence y opportunityEvidence deben copiar literalmente valores presentes en la entrada. No inventes datos y no calcules porcentajes. relation debe ser una frase breve en español argentino.",
       },
       {
         role: "user",
-        content: JSON.stringify({
-          volunteer: {
-            interests: profile.interests ?? [], declaredSkills: profile.declaredSkills ?? [],
-            verifiedSkills: profile.verifiedSkills ?? {}, availability: profile.availability ?? [],
-            location: profile.location ?? "", experiences: profile.experiences ?? [],
-          },
-          opportunity: {
-            category: opportunity.category ?? "", tasks: opportunity.tasks ?? [],
-            requiredSkills: opportunity.requiredSkills ?? [], availability: opportunity.availability ?? [],
-            province: opportunity.province ?? "", modality: opportunity.modality ?? "",
-          },
-        }),
+        content: JSON.stringify({ volunteer, opportunity: target }),
       },
     ],
   });
-  return { explanation: response.output_text };
+  const parsed = JSON.parse(response.output_text);
+  const profileEvidence = new Set(Object.values(volunteer).flat(Infinity).map(String));
+  const opportunityEvidence = new Set(Object.values(target).flat(Infinity).map(String));
+  const relationships = (parsed.relationships ?? []).filter((item) =>
+    profileEvidence.has(item.profileEvidence) && opportunityEvidence.has(item.opportunityEvidence),
+  );
+  const explanation = relationships.length
+    ? `La IA encontró relaciones entre ${relationships.slice(0, 3).map((item) => `${item.profileEvidence} y ${item.opportunityEvidence}`).join(", ")}.`
+    : "La IA no encontró relaciones adicionales respaldadas por los datos disponibles.";
+  return { relationships, explanation };
 });
