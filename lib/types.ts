@@ -120,11 +120,33 @@ export type AppNotification = {
   actorId: string;
   applicationId?: string;
   invitationId?: string;
-  type: "application_received" | "application_accepted" | "application_rejected" | "proposal_received" | "proposal_accepted" | "proposal_rejected";
+  feedbackId?: string;
+  type: "application_received" | "application_accepted" | "application_rejected" | "proposal_received" | "proposal_accepted" | "proposal_rejected" | "feedback_warning";
   title: string;
   message: string;
   read: boolean;
   createdAt: string;
+};
+
+export type ExperienceFeedback = {
+  id: string;
+  matchId: string;
+  opportunityId: string;
+  opportunityTitle: string;
+  organizationId: string;
+  organizationName: string;
+  submittedByEmail: string;
+  volunteerId: string;
+  volunteerName: string;
+  tasks: string[];
+  skills: string[];
+  assessment: "positive" | "needs_improvement";
+  details: string;
+  status: "recorded" | "pending_review" | "approved" | "dismissed";
+  createdAt: string;
+  moderationReason?: string;
+  moderatedAt?: string;
+  moderatedBy?: string;
 };
 
 export type Invitation = {

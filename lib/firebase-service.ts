@@ -12,6 +12,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -25,7 +26,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "@/lib/firebase";
-import type { AppNotification, Application, Invitation, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
+import type { AppNotification, Application, ExperienceFeedback, Invitation, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
 
 function requireDb() {
   if (!db) throw new Error("Firebase todavía no está configurado.");
@@ -62,8 +63,10 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
     : storedRole ?? requestedRole;
   const batch = writeBatch(firestore);
 
-  if (stored?.status === "suspended") {
-    const until = stored.suspendedUntil instanceof Timestamp ? stored.suspendedUntil.toDate() : null;
+  const suspensionUntil = stored?.suspendedUntil instanceof Timestamp ? stored.suspendedUntil.toDate() : null;
+  const suspensionExpired = stored?.status === "suspended" && suspensionUntil && suspensionUntil.getTime() <= Date.now();
+  if (stored?.status === "suspended" && !suspensionExpired) {
+    const until = suspensionUntil;
     const detail = until ? ` hasta el ${until.toLocaleDateString("es-AR")}` : "";
     throw new Error(`La cuenta está suspendida${detail}. ${stored.suspensionReason ?? "Contactá a administración."}`);
   }
@@ -120,7 +123,11 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
       });
     }
   } else {
-    batch.update(userRef, { lastLoginAt: serverTimestamp(), ...(bootstrapAdmin ? { role: "admin" } : {}) });
+    batch.update(userRef, {
+      lastLoginAt: serverTimestamp(),
+      ...(bootstrapAdmin ? { role: "admin" } : {}),
+      ...(suspensionExpired ? { status: "active", suspensionReason: null, suspendedUntil: null, updatedAt: serverTimestamp() } : {}),
+    });
   }
 
   await batch.commit();
@@ -129,7 +136,7 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
     email,
     displayName: user.displayName ?? email.split("@")[0] ?? "Usuario",
     role,
-    status: stored?.status === "suspended" ? "suspended" : "active",
+    status: stored?.status === "suspended" && !suspensionExpired ? "suspended" : "active",
   };
 }
 
@@ -394,6 +401,71 @@ export function observeAdminReviewPhotos(callback: (items: ReviewPhoto[]) => voi
   return onSnapshot(collection(db, "reviewPhotos"), (snapshot) => callback(snapshot.docs.map((item) => mapDoc<ReviewPhoto>(item))), onError);
 }
 
+export function observeAdminFeedback(callback: (items: ExperienceFeedback[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  return onSnapshot(collection(db, "feedback"), (snapshot) => {
+    const items = snapshot.docs.map((item) => mapDoc<ExperienceFeedback>(item));
+    callback(items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+  }, onError);
+}
+
+// Una devolución negativa solo produce efectos luego de la revisión de administración.
+export async function adminModerateFeedback(actor: SessionUser, feedback: ExperienceFeedback, status: "approved" | "dismissed", reason: string, suspensionDays: number) {
+  const firestore = requireDb();
+  const snapshot = await getDocs(collection(firestore, "feedback"));
+  const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+  const previousApproved = snapshot.docs.map((item) => mapDoc<ExperienceFeedback>(item)).filter((item) =>
+    item.id !== feedback.id
+    && item.volunteerId === feedback.volunteerId
+    && item.assessment === "needs_improvement"
+    && item.status === "approved"
+    && new Date(item.createdAt).getTime() >= cutoff
+  ).length;
+  const confirmedCount = status === "approved" ? previousApproved + 1 : previousApproved;
+  const shouldSuspend = status === "approved" && confirmedCount >= 2;
+  const batch = writeBatch(firestore);
+  batch.update(doc(firestore, "feedback", feedback.id), {
+    status, moderationReason: reason, moderatedBy: actor.uid, moderatedAt: serverTimestamp(),
+  });
+  if (status === "approved") {
+    batch.set(doc(firestore, "notifications", `feedback_warning_${feedback.id}`), {
+      recipientId: feedback.volunteerId,
+      actorId: actor.uid,
+      feedbackId: feedback.id,
+      type: "feedback_warning",
+      title: shouldSuspend ? "Suspensión temporal" : "Orientación para tu próxima experiencia",
+      message: shouldSuspend
+        ? `Se confirmaron dos devoluciones dentro de tres meses. Tu cuenta fue suspendida temporalmente por ${Math.max(1, suspensionDays)} días.`
+        : `Antes de tu próxima experiencia, tené en cuenta este aspecto a mejorar: ${feedback.details}`,
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+  }
+  if (shouldSuspend) {
+    batch.update(doc(firestore, "users", feedback.volunteerId), {
+      status: "suspended",
+      suspendedUntil: new Date(Date.now() + Math.max(1, suspensionDays) * 24 * 60 * 60 * 1000),
+      suspensionReason: "Dos devoluciones negativas confirmadas dentro de tres meses",
+      moderatedBy: actor.uid,
+      updatedAt: serverTimestamp(),
+    });
+  }
+  batch.set(doc(collection(firestore, "adminActions")), {
+    actorId: actor.uid,
+    actorEmail: actor.email,
+    action: status === "approved" ? "approve_negative_feedback" : "dismiss_negative_feedback",
+    targetType: "feedback",
+    targetId: feedback.id,
+    reason,
+    createdAt: serverTimestamp(),
+  });
+  await batch.commit();
+  return {
+    feedback: { ...feedback, status, moderationReason: reason, moderatedBy: actor.uid, moderatedAt: new Date().toISOString() },
+    suspended: shouldSuspend,
+  };
+}
+
 export async function adminModerateReviewPhoto(actor: SessionUser, photo: ReviewPhoto, status: "approved" | "rejected", reason: string) {
   const firestore = requireDb();
   const batch = writeBatch(firestore);
@@ -637,7 +709,7 @@ export async function updateOpportunity(opportunity: Opportunity) {
 // Registra el cierre de la experiencia y actualiza la trayectoria en una transacción.
 export async function recordCompletedExperience(
   application: Application,
-  values: { tasks: string[]; skills: string[]; organizationName: string },
+  values: { tasks: string[]; skills: string[]; organizationName: string; submittedByEmail: string; assessment: "positive" | "needs_improvement"; details: string },
 ) {
   const firestore = requireDb();
   const matchId = application.matchId ?? `${application.opportunityId}_${application.userId}`;
@@ -670,10 +742,16 @@ export async function recordCompletedExperience(
       matchId,
       opportunityId: application.opportunityId,
       organizationId: application.organizationId,
+      organizationName: values.organizationName,
+      submittedByEmail: values.submittedByEmail,
       volunteerId: application.userId,
+      volunteerName: application.userName,
+      opportunityTitle: application.opportunityTitle,
       tasks: values.tasks,
       skills: values.skills,
-      status: "recorded",
+      assessment: values.assessment,
+      details: values.details,
+      status: values.assessment === "needs_improvement" ? "pending_review" : "recorded",
       createdAt: serverTimestamp(),
     });
     transaction.update(doc(firestore, "matches", matchId), { status: "completed", completedAt: serverTimestamp() });

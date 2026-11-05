@@ -32,6 +32,12 @@ service cloud.firestore {
         owns(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName", "lastLoginAt"])
       ) || (
         owns(userId)
+        && resource.data.status == "suspended"
+        && resource.data.suspendedUntil < request.time
+        && request.resource.data.status == "active"
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "suspensionReason", "suspendedUntil", "lastLoginAt", "updatedAt"])
+      ) || (
+        owns(userId)
         && request.auth.token.email == "leybatao014@gmail.com"
         && request.resource.data.role == "admin"
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["role", "lastLoginAt"])
@@ -112,6 +118,10 @@ service cloud.firestore {
           (request.resource.data.type in ["proposal_accepted", "proposal_rejected"]
             && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.userId == request.auth.uid
             && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.organizationId)
+          ||
+          (request.resource.data.type == "feedback_warning"
+            && isAdmin()
+            && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/feedback/$(request.resource.data.feedbackId)).data.volunteerId)
         );
       allow update: if owns(resource.data.recipientId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read", "readAt"])
@@ -156,8 +166,18 @@ service cloud.firestore {
 
     match /feedback/{feedbackId} {
       allow create: if isOrganizationAdmin(request.resource.data.organizationId)
-        && existsAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId));
+        && existsAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId))
+        && request.resource.data.assessment in ["positive", "needs_improvement"]
+        && request.resource.data.details is string
+        && request.resource.data.details.size() <= 600
+        && (
+          (request.resource.data.assessment == "positive" && request.resource.data.status == "recorded")
+          || (request.resource.data.assessment == "needs_improvement" && request.resource.data.status == "pending_review" && request.resource.data.details.size() >= 15)
+        );
       allow read: if signedIn() && (resource.data.volunteerId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "moderationReason", "moderatedBy", "moderatedAt"])
+        && request.resource.data.status in ["approved", "dismissed"];
     }
 
     match /reviews/{reviewId} {

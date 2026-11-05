@@ -51,6 +51,13 @@ before(async () => {
         role: "admin",
         status: "active",
       }),
+      setDoc(doc(database, "users/expired"), {
+        email: "expired@example.com",
+        role: "volunteer",
+        status: "suspended",
+        suspensionReason: "Prueba temporal",
+        suspendedUntil: new Date("2025-01-01T00:00:00.000Z"),
+      }),
       setDoc(doc(database, "organizationMembers/org_org"), {
         organizationId: "org",
         userId: "org",
@@ -102,6 +109,15 @@ before(async () => {
         source: "invitation",
         status: "confirmed",
       }),
+      setDoc(doc(database, "feedback/negative-review"), {
+        matchId: "previous-match",
+        opportunityId: "opp",
+        organizationId: "org",
+        volunteerId: "vol",
+        assessment: "needs_improvement",
+        details: "Necesita mejorar la puntualidad informada.",
+        status: "pending_review",
+      }),
     ]);
   });
 });
@@ -138,6 +154,8 @@ test("la organización puede cerrar una experiencia invitada en una sola operaci
     volunteerId: "vol",
     tasks: "Acompañó a niñas y niños con sus tareas.",
     skills: ["Comunicación"],
+    assessment: "positive",
+    details: "Participación satisfactoria.",
     status: "recorded",
     createdAt: serverTimestamp(),
   });
@@ -224,6 +242,52 @@ test("administración puede validar una organización pendiente", async () => {
     moderationReason: "Datos revisados",
     moderatedBy: "admin",
     moderatedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+});
+
+test("solo administración puede confirmar una devolución negativa y advertir en privado", async () => {
+  const admin = testEnvironment.authenticatedContext("admin", { email: "admin@example.com" });
+  const database = admin.firestore();
+  const batch = writeBatch(database);
+  batch.update(doc(database, "feedback/negative-review"), {
+    status: "approved",
+    moderationReason: "Corroborado con ambas partes",
+    moderatedBy: "admin",
+    moderatedAt: serverTimestamp(),
+  });
+  batch.set(doc(database, "notifications/feedback_warning_negative-review"), {
+    recipientId: "vol",
+    actorId: "admin",
+    feedbackId: "negative-review",
+    type: "feedback_warning",
+    title: "Orientación para tu próxima experiencia",
+    message: "Revisá los aspectos informados antes de participar nuevamente.",
+    read: false,
+    createdAt: serverTimestamp(),
+  });
+
+  await assertSucceeds(batch.commit());
+
+  const outsider = testEnvironment.authenticatedContext("other", { email: "otro@example.com" });
+  await assertFails(updateDoc(doc(outsider.firestore(), "feedback/negative-review"), { status: "dismissed" }));
+});
+
+test("una cuenta solo puede reactivarse a sí misma cuando la suspensión ya venció", async () => {
+  const expired = testEnvironment.authenticatedContext("expired", { email: "expired@example.com" });
+  await assertSucceeds(updateDoc(doc(expired.firestore(), "users/expired"), {
+    status: "active",
+    suspensionReason: null,
+    suspendedUntil: null,
+    lastLoginAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+
+  const active = testEnvironment.authenticatedContext("other", { email: "otro@example.com" });
+  await assertFails(updateDoc(doc(active.firestore(), "users/other"), {
+    status: "suspended",
+    suspensionReason: "Autoimpuesta",
+    suspendedUntil: new Date("2030-01-01T00:00:00.000Z"),
     updatedAt: serverTimestamp(),
   }));
 });
