@@ -85,6 +85,18 @@ export type Review = {
   comment: string;
   status: "published" | "reported" | "hidden";
   createdAt: string;
+  moderationReason?: string;
+  moderatedAt?: string;
+  moderatedBy?: string;
+};
+
+export type ReviewReport = {
+  id: string;
+  reviewId: string;
+  reporterId: string;
+  reason: string;
+  status: "pending" | "resolved";
+  createdAt: string;
 };
 
 export type Organization = {

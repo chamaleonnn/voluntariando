@@ -1,4 +1,4 @@
-import type { Application, Opportunity, Review, VolunteerProfile } from "@/lib/types";
+import type { Application, Opportunity, Review, ReviewReport, VolunteerProfile } from "@/lib/types";
 
 export const DEMO_OPPORTUNITIES: Opportunity[] = [
   {
@@ -328,6 +328,10 @@ export const DEMO_REVIEWS: Review[] = [
     comment: "La organización fue clara y el acompañamiento a los chicos estuvo muy bien coordinado.",
     status: "published", createdAt: "2026-10-18T18:00:00.000Z",
   },
+];
+
+export const DEMO_REVIEW_REPORTS: ReviewReport[] = [
+  { id: "demo-report-1", reviewId: "demo-review-2", reporterId: "demo-volunteer", reason: "Quiero que administración revise el contenido.", status: "pending", createdAt: "2026-10-21T12:00:00.000Z" },
 ];
 
 export const DEMO_VOLUNTEERS: VolunteerProfile[] = [

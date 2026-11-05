@@ -25,7 +25,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "@/lib/firebase";
-import type { Application, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, SessionUser, VolunteerProfile } from "@/lib/types";
+import type { Application, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
 
 function requireDb() {
   if (!db) throw new Error("Firebase todavía no está configurado.");
@@ -256,6 +256,33 @@ export async function createReview(review: Omit<Review, "id" | "createdAt" | "st
   const reviewRef = doc(firestore, "reviews", review.applicationId);
   await setDoc(reviewRef, { ...review, status: "published", createdAt: serverTimestamp() });
   return { ...review, id: reviewRef.id, status: "published" as const, createdAt: new Date().toISOString() };
+}
+
+export async function reportReview(reviewId: string, reporterId: string, reason: string) {
+  const firestore = requireDb();
+  const reportRef = doc(firestore, "reviewReports", `${reviewId}_${reporterId}`);
+  await setDoc(reportRef, { reviewId, reporterId, reason, status: "pending", createdAt: serverTimestamp() });
+}
+
+export function observeAdminReviews(callback: (items: Review[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  return onSnapshot(collection(db, "reviews"), (snapshot) => callback(snapshot.docs.map((item) => mapDoc<Review>(item))), onError);
+}
+
+export function observeAdminReviewReports(callback: (items: ReviewReport[]) => void, onError: (error: Error) => void) {
+  if (!db) return () => undefined;
+  return onSnapshot(collection(db, "reviewReports"), (snapshot) => callback(snapshot.docs.map((item) => mapDoc<ReviewReport>(item))), onError);
+}
+
+export async function adminModerateReview(actor: SessionUser, review: Review, report: ReviewReport, status: "published" | "hidden", reason: string) {
+  const firestore = requireDb();
+  const batch = writeBatch(firestore);
+  const moderatedAt = new Date().toISOString();
+  batch.update(doc(firestore, "reviews", review.id), { status, moderationReason: reason, moderatedBy: actor.uid, moderatedAt: serverTimestamp() });
+  batch.update(doc(firestore, "reviewReports", report.id), { status: "resolved", resolvedBy: actor.uid, resolvedAt: serverTimestamp() });
+  batch.set(doc(collection(firestore, "adminActions")), { actorId: actor.uid, action: status === "hidden" ? "hide_review" : "keep_review", targetType: "review", targetId: review.id, reason, createdAt: serverTimestamp() });
+  await batch.commit();
+  return { ...review, status, moderationReason: reason, moderatedBy: actor.uid, moderatedAt };
 }
 
 // El panel administrativo necesita el listado completo de cuentas, incluidos sus correos y estados.
