@@ -601,7 +601,7 @@ export async function recordCompletedExperience(
   values: { tasks: string[]; skills: string[]; organizationName: string },
 ) {
   const firestore = requireDb();
-  const matchId = `${application.opportunityId}_${application.userId}`;
+  const matchId = application.matchId ?? `${application.opportunityId}_${application.userId}`;
   await runTransaction(firestore, async (transaction) => {
     const participationRef = doc(firestore, "participations", matchId);
     if ((await transaction.get(participationRef)).exists()) throw new Error("Esta participación ya fue registrada.");
@@ -638,7 +638,11 @@ export async function recordCompletedExperience(
       createdAt: serverTimestamp(),
     });
     transaction.update(doc(firestore, "matches", matchId), { status: "completed", completedAt: serverTimestamp() });
-    transaction.update(doc(firestore, "applications", application.id), { completedAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    if (application.source === "invitation") {
+      transaction.update(doc(firestore, "invitations", application.id), { completedAt: serverTimestamp() });
+    } else {
+      transaction.update(doc(firestore, "applications", application.id), { completedAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    }
     transaction.set(profileRef, {
       verifiedSkills,
       experiences: [...(profile?.experiences ?? []), experience],

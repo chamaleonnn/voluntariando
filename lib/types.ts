@@ -70,6 +70,8 @@ export type Application = {
   status: "pending" | "accepted" | "rejected" | "cancelled";
   createdAt: string;
   completedAt?: string;
+  source?: "application" | "invitation";
+  matchId?: string;
 };
 
 export type Review = {
@@ -136,6 +138,7 @@ export type Invitation = {
   message: string;
   status: "pending" | "accepted" | "rejected";
   createdAt: string;
+  completedAt?: string;
 };
 
 export type Organization = {

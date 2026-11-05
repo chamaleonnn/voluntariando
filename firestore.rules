@@ -118,10 +118,16 @@ service cloud.firestore {
         && request.resource.data.status == "pending"
         && get(/databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)).data.organizationId == request.resource.data.organizationId;
       allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
-      allow update: if owns(resource.data.userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "respondedAt"])
-        && resource.data.status == "pending"
-        && request.resource.data.status in ["accepted", "rejected"];
+      allow update: if (
+        owns(resource.data.userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "respondedAt"])
+          && resource.data.status == "pending"
+          && request.resource.data.status in ["accepted", "rejected"]
+      ) || (
+        isOrganizationAdmin(resource.data.organizationId)
+          && resource.data.status == "accepted"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["completedAt"])
+      );
       allow delete: if false;
     }
 
