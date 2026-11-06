@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/sonner";
+import { ViaAvatar, type ViaState } from "@/components/via-avatar";
+import { ViaVideoWelcome, WelcomeTutorial } from "@/components/via-onboarding";
 import { DEMO_APPLICATIONS, DEMO_OPPORTUNITIES, DEMO_REVIEW_REPORTS, DEMO_REVIEWS, DEMO_VOLUNTEERS } from "@/lib/demo-data";
 import {
   adminModerateAbsence, adminModerateFeedback, adminModerateReview, adminModerateReviewPhoto, adminUpdateOpportunity, adminUpdateOrganization, adminUpdateUser, authErrorMessage, createApplication, createInvitation, createOpportunity, createReview, firebaseSignInWithGoogle, firebaseSignOut,
@@ -171,8 +173,8 @@ export default function Home() {
     setUser(nextUser);
     if (nextUser) {
       setScreen(screenForRole(nextUser.role));
-      const welcomeKey = `voluntariando-via-welcome-${nextUser.uid}-v1`;
-      setViaWelcomeOpen(nextUser.role !== "admin" && !window.localStorage.getItem(welcomeKey));
+      setViaWelcomeOpen(false);
+      setTutorialOpen(false);
     } else {
       setViaWelcomeOpen(false);
     }
@@ -257,8 +259,8 @@ export default function Home() {
     setUser(nextUser);
     setAuthOpen(false);
     setScreen(screenForRole(nextUser.role));
-    const welcomeKey = `voluntariando-via-welcome-${nextUser.uid}-v1`;
-    setViaWelcomeOpen(nextUser.role !== "admin" && !window.localStorage.getItem(welcomeKey));
+    setViaWelcomeOpen(false);
+    setTutorialOpen(false);
     toast.success(`Entraste como ${nextUser.displayName}`);
   }
 
@@ -316,21 +318,28 @@ export default function Home() {
       ? profileLoadedFor === user.uid && volunteerProfileIsComplete(profile)
       : organizationLoadedFor === user.uid && Boolean(organizationProfile && organizationProfileIsComplete(organizationProfile));
     if (!ready) return;
-    const key = `voluntariando-tutorial-${user.uid}-${user.role}-v2`;
-    if (window.localStorage.getItem(key)) return;
-    const timer = window.setTimeout(() => setTutorialOpen(true), 0);
+    const welcomeKey = `voluntariando-via-welcome-${user.uid}-v2`;
+    const tutorialKey = `voluntariando-tutorial-${user.uid}-${user.role}-v3`;
+    const timer = window.setTimeout(() => {
+      if (!window.localStorage.getItem(welcomeKey)) setViaWelcomeOpen(true);
+      else if (!window.localStorage.getItem(tutorialKey)) setTutorialOpen(true);
+    }, 0);
     return () => window.clearTimeout(timer);
   }, [user, profile, profileLoadedFor, organizationProfile, organizationLoadedFor]);
 
   function finishTutorial(showVia: boolean) {
-    if (user && !user.isDemo) window.localStorage.setItem(`voluntariando-tutorial-${user.uid}-${user.role}-v2`, "done");
+    if (user && !user.isDemo) window.localStorage.setItem(`voluntariando-tutorial-${user.uid}-${user.role}-v3`, "done");
     setTutorialOpen(false);
     if (showVia && user?.role === "volunteer") setViaPromptToken((current) => current + 1);
   }
 
-  function finishViaWelcome() {
-    if (user) window.localStorage.setItem(`voluntariando-via-welcome-${user.uid}-v1`, "done");
+  function finishViaWelcome(startTour: boolean) {
+    if (user) {
+      window.localStorage.setItem(`voluntariando-via-welcome-${user.uid}-v2`, "done");
+      if (!startTour) window.localStorage.setItem(`voluntariando-tutorial-${user.uid}-${user.role}-v3`, "skipped");
+    }
     setViaWelcomeOpen(false);
+    if (startTour) setTutorialOpen(true);
   }
 
   return (
@@ -338,7 +347,7 @@ export default function Home() {
       <div className="ambient-background" aria-hidden="true"><span className="ambient-orb ambient-orb-one" /><span className="ambient-orb ambient-orb-two" /><span className="ambient-orb ambient-orb-three" /></div>
       {/* Los avisos aparecen debajo del encabezado para no bloquear la navegación. */}
       <Toaster position="top-center" offset={90} richColors />
-      <SiteHeader screen={screen} user={user} notifications={notifications} onReadNotification={readNotification} onTutorial={() => setTutorialOpen(true)} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSignOut={signOut} />
+      <SiteHeader screen={screen} user={user} notifications={notifications} onReadNotification={readNotification} onTutorial={() => { setViaWelcomeOpen(false); setTutorialOpen(true); }} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSignOut={signOut} />
       <div className="screen-stage" key={screen}>
         {screen === "landing" && <Landing opportunities={opportunities} reviews={reviews} reviewPhotos={reviewPhotos} user={user} onExplore={() => navigate("opportunities")} onLogin={() => setAuthOpen(true)} onAccount={() => user && navigate(screenForRole(user.role))} />}
         {screen === "opportunities" && <OpportunityFeed opportunities={recommended} user={user} onOpen={setSelectedOpportunity} />}
@@ -359,10 +368,10 @@ export default function Home() {
       <GuideAssistant user={user} profile={profile} opportunities={recommended} promptToken={viaPromptToken} onOpenOpportunity={setSelectedOpportunity} />
       <OpportunityDialog opportunity={selectedOpportunity} user={user} applications={applications} open={Boolean(selectedOpportunity)} onOpenChange={(open) => !open && setSelectedOpportunity(null)} onApply={apply} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onUser={loginAs} />
-      {user?.role === "volunteer" && !user.isDemo && <VolunteerProfileDialog user={user} profile={profile} open={volunteerOnboarding && !viaWelcomeOpen} onOpenChange={() => undefined} onSaved={setProfile} mandatory />}
-      {user?.role === "organization" && !user.isDemo && <OrganizationProfileDialog user={user} organization={organization} open={organizationOnboarding && !viaWelcomeOpen} onOpenChange={() => undefined} onSaved={(next) => { setOrganizationProfile(next); setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next]); }} mandatory />}
-      {user && user.role !== "admin" && <ViaVideoWelcome role={user.role} open={viaWelcomeOpen} onFinish={finishViaWelcome} />}
-      {user && user.role !== "admin" && <WelcomeTutorial role={user.role} open={tutorialOpen} onOpenChange={setTutorialOpen} onFinish={finishTutorial} />}
+      {user?.role === "volunteer" && !user.isDemo && <VolunteerProfileDialog user={user} profile={profile} open={volunteerOnboarding} onOpenChange={() => undefined} onSaved={setProfile} mandatory />}
+      {user?.role === "organization" && !user.isDemo && <OrganizationProfileDialog user={user} organization={organization} open={organizationOnboarding} onOpenChange={() => undefined} onSaved={(next) => { setOrganizationProfile(next); setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next]); }} mandatory />}
+      {user && user.role !== "admin" && <ViaVideoWelcome role={user.role} open={viaWelcomeOpen} onOmit={() => finishViaWelcome(false)} onStartTour={() => finishViaWelcome(true)} />}
+      {user && user.role !== "admin" && <WelcomeTutorial role={user.role} open={tutorialOpen} screen={screen} onNavigate={navigate} onOpenChange={setTutorialOpen} onFinish={finishTutorial} />}
     </main>
   );
 }
@@ -386,75 +395,6 @@ function SiteHeader({ screen, user, notifications, onReadNotification, onTutoria
 
 function NotificationDialog({ notifications, open, onOpenChange, onRead }: { notifications: AppNotification[]; open: boolean; onOpenChange: (open: boolean) => void; onRead: (item: AppNotification) => void }) {
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="notification-dialog"><DialogHeader><DialogTitle>Notificaciones</DialogTitle><DialogDescription>Solicitudes y respuestas de tus participaciones.</DialogDescription></DialogHeader><div className="notification-list">{notifications.map((item) => <button key={item.id} className={item.read ? "read" : ""} onClick={() => onRead(item)}><span>{item.type === "application_received" ? "👤" : item.type === "application_accepted" ? "✓" : "↪"}</span><div><b>{item.title}</b><p>{item.message}</p><small>{new Date(item.createdAt).toLocaleDateString("es-AR")}</small></div>{!item.read && <i />}</button>)}{!notifications.length && <p className="panel-note">Todavía no tenés notificaciones.</p>}</div><DialogFooter><Button onClick={() => onOpenChange(false)}>Cerrar</Button></DialogFooter></DialogContent></Dialog>;
-}
-
-function WelcomeTutorial({ role, open, onOpenChange, onFinish }: { role: "volunteer" | "organization"; open: boolean; onOpenChange: (open: boolean) => void; onFinish: (showVia: boolean) => void }) {
-  const [step, setStep] = useState(0);
-  const steps = role === "volunteer" ? [
-    { title: "Tu perfil", text: "Intereses, habilidades, disponibilidad y ubicación permiten calcular recomendaciones útiles.", target: "volunteer-profile" },
-    { title: "Oportunidades para vos", text: "Vía y el feed comparten el mismo orden de recomendaciones.", target: "volunteer-recommendations" },
-    { title: "Compatibilidad explicada", text: "El porcentaje combina cinco criterios y podés abrir su detalle.", target: "volunteer-recommendations" },
-    { title: "Postulaciones", text: "Mostrá interés y seguí la respuesta de la organización.", target: "volunteer-applications" },
-    { title: "Invitaciones", text: "Las propuestas directas pueden aceptarse o rechazarse.", target: "volunteer-invitations" },
-    { title: "Participaciones", text: "Una participación aceptada puede terminar como realizada o ausencia revisada.", target: "volunteer-applications" },
-    { title: "Experiencias", text: "Tareas y habilidades verificadas actualizan tu trayectoria.", target: "volunteer-experiences" },
-  ] : [
-    { title: "Perfil de organización", text: "Completá descripción, ubicación y contacto antes de la validación.", target: "organization-profile" },
-    { title: "Publicaciones", text: "Creá oportunidades con tareas, habilidades, modalidad y ubicación reales.", target: "organization-opportunities" },
-    { title: "Voluntarios visibles", text: "Consultá perfiles que autorizaron ser encontrados.", target: "organization-volunteers" },
-    { title: "Invitaciones", text: "Enviá propuestas; el match nace cuando la persona acepta.", target: "organization-invitations" },
-    { title: "Postulaciones", text: "Aceptá o rechazá personas interesadas.", target: "organization-applications" },
-    { title: "Participaciones", text: "Marcá una experiencia realizada o informá una ausencia.", target: "organization-applications" },
-    { title: "Habilidades verificadas", text: "Detallá tareas y seleccioná habilidades realmente observadas.", target: "organization-applications" },
-  ];
-  const current = steps[step];
-  const last = step === steps.length - 1;
-  useEffect(() => {
-    if (!open) return;
-    const target = document.querySelector(`[data-tour="${current.target}"]`);
-    document.querySelectorAll(".tour-highlight").forEach((item) => item.classList.remove("tour-highlight"));
-    target?.classList.add("tour-highlight");
-    target?.scrollIntoView({ behavior: "smooth", block: "center" });
-    return () => target?.classList.remove("tour-highlight");
-  }, [open, current.target]);
-  function changeOpen(nextOpen: boolean) { if (!nextOpen) setStep(0); onOpenChange(nextOpen); }
-  if (!open) return null;
-  return <aside className="tour-card" role="dialog" aria-modal="false" aria-label={`Recorrido guiado: ${current.title}`}><div className="tour-via"><ViaAvatar state={step === 0 ? "greeting" : last ? "celebration" : "explanation"} size={78} /><div><b>Vía te acompaña</b><small>Recorrido para {role === "volunteer" ? "voluntarios" : "organizaciones"}</small></div></div><div className="tutorial-progress" style={{ gridTemplateColumns: `repeat(${steps.length}, 1fr)` }} aria-label={`Paso ${step + 1} de ${steps.length}`}>{steps.map((item, index) => <i key={item.title} className={index <= step ? "active" : ""} />)}</div><span className="tutorial-step">Paso {step + 1} de {steps.length}</span><h2>{current.title}</h2><p>{current.text}</p><div className="tour-actions"><Button variant="ghost" onClick={() => { changeOpen(false); onFinish(false); }}>Omitir</Button>{step > 0 && <Button variant="outline" onClick={() => setStep((value) => value - 1)}>Anterior</Button>}<Button onClick={() => last ? onFinish(role === "volunteer") : setStep((value) => value + 1)}>{last ? role === "volunteer" ? "Terminar y preguntarle a Vía" : "Finalizar" : "Siguiente"}</Button></div></aside>;
-}
-
-type ViaState = "greeting" | "explanation" | "waiting" | "thinking" | "celebration";
-function ViaAvatar({ state, size = 76 }: { state: ViaState; size?: number }) {
-  const symbol = state === "thinking" ? "···" : state === "celebration" ? "✦" : state === "greeting" ? "¡Hola!" : state === "explanation" ? "i" : "";
-  return <span className={`via-avatar via-${state}`} style={{ width: size, height: size }} aria-hidden="true"><Image src="/via-mecha.png" width={size} height={size} alt="" />{symbol && <i>{symbol}</i>}</span>;
-}
-
-const VIA_VIDEO_STEPS = [
-  { title: "Creá y completá tu perfil", text: "Primero contame tus intereses, habilidades y ubicación. Con esos datos puedo ayudarte a encontrar oportunidades que tengan sentido para vos.", videoSrc: "/videos/crear-perfil.mp4" },
-  { title: "Entendé tus recomendaciones", text: "Cada porcentaje combina cinco criterios. Las oportunidades aparecen ordenadas y siempre podés ver por qué coinciden con tu perfil.", videoSrc: "/videos/recibir-recomendaciones.mp4" },
-  { title: "Mostrá interés y vinculáte", text: "Cuando una propuesta te guste, podés mostrar interés. La organización responde y el contacto se habilita después de la aceptación.", videoSrc: "/videos/mostrar-interes.mp4" },
-  { title: "Sumá una experiencia verificada", text: "Al finalizar, la organización registra las tareas y habilidades observadas. Eso mejora tu trayectoria y las próximas recomendaciones.", videoSrc: "/videos/sumar-experiencia.mp4" },
-];
-
-function ViaVideoWelcome({ role, open, onFinish }: { role: "volunteer" | "organization"; open: boolean; onFinish: () => void }) {
-  const [step, setStep] = useState(0);
-  if (!open) return null;
-  const finish = () => { setStep(0); onFinish(); };
-  const intro = step === 0;
-  const current = VIA_VIDEO_STEPS[step - 1];
-  const last = step === VIA_VIDEO_STEPS.length;
-  return <div className="via-welcome-backdrop" role="dialog" aria-modal="true" aria-label="Bienvenida de Vía">
-    <section className={`via-welcome ${intro ? "intro" : "video"}`}>
-      {intro ? <>
-        <div className="via-welcome-character"><ViaAvatar state="greeting" size={330} /></div>
-        <div className="via-welcome-copy"><span>¡Hola! Soy Vía</span><h1>Te voy a acompañar en Voluntariando.</h1><p>{role === "volunteer" ? "Antes de completar tu perfil, quiero mostrarte en cuatro videos cortos cómo vas a encontrar oportunidades, vincularte y construir tu trayectoria." : "Antes de completar el perfil de tu organización, quiero mostrarte el recorrido que conecta personas, oportunidades y experiencias verificadas."}</p><div className="via-welcome-actions"><Button variant="ghost" onClick={finish}>Omitir</Button><Button size="lg" onClick={() => setStep(1)}>Conocer la app <ArrowRight /></Button></div></div>
-      </> : <>
-        <div className="via-welcome-video"><video key={current.videoSrc} src={current.videoSrc} controls autoPlay muted playsInline preload="metadata">Tu navegador no puede reproducir este video.</video></div>
-        <div className="via-welcome-explanation"><ViaAvatar state={last ? "celebration" : "explanation"} size={150} /><div><span>Vía explica · {step} de {VIA_VIDEO_STEPS.length}</span><h2>{current.title}</h2><p>{current.text}</p></div></div>
-        <div className="via-welcome-progress" aria-label={`Video ${step} de ${VIA_VIDEO_STEPS.length}`}>{VIA_VIDEO_STEPS.map((item, index) => <i key={item.title} className={index < step ? "active" : ""} />)}</div>
-        <div className="via-welcome-actions"><Button variant="ghost" onClick={finish}>Omitir</Button>{step > 1 && <Button variant="outline" onClick={() => setStep((value) => value - 1)}>Anterior</Button>}<Button onClick={() => last ? finish() : setStep((value) => value + 1)}>{last ? "Empezar" : "Siguiente"}</Button></div>
-      </>}
-    </section>
-  </div>;
 }
 
 function Landing({ opportunities, reviews, reviewPhotos, user, onExplore, onLogin, onAccount }: { opportunities: Opportunity[]; reviews: Review[]; reviewPhotos: ReviewPhoto[]; user: SessionUser | null; onExplore: () => void; onLogin: () => void; onAccount: () => void }) {
@@ -504,7 +444,7 @@ function OpportunityFeed({ opportunities, user, onOpen }: { opportunities: Oppor
       && (province === "Todas" || item.province === province)
       && (modality === "Todas" || item.modality === modality);
   });
-  return <section className="feed-page"><div className="feed-intro"><div><span><Sparkles /> {user?.role === "volunteer" ? "Recomendaciones personalizadas" : "Oportunidades disponibles"}</span><h1>Encontrá dónde participar</h1><p>Ordenadas por compatibilidad cuando ingresás como voluntario.</p></div><Button variant="outline" onClick={() => setShowMap((value) => !value)}><Map /> {showMap ? "Ver listado" : "Ver mapa"}</Button></div>
+  return <section className="feed-page" data-tour="opportunity-feed"><div className="feed-intro"><div><span><Sparkles /> {user?.role === "volunteer" ? "Recomendaciones personalizadas" : "Oportunidades disponibles"}</span><h1>Encontrá dónde participar</h1><p>Ordenadas por compatibilidad cuando ingresás como voluntario.</p></div><Button variant="outline" onClick={() => setShowMap((value) => !value)}><Map /> {showMap ? "Ver listado" : "Ver mapa"}</Button></div>
     <div className="feed-search"><Search /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar oportunidades, organizaciones o temáticas" /></div>
     <div className="feed-layout document-feed"><aside className="filter-panel"><div className="aside-title"><b>Filtros</b></div><label>Provincia<Select value={province} onValueChange={setProvince}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{provinces.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></label><label>Modalidad<Select value={modality} onValueChange={setModality}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Todas", "Presencial", "Virtual", "Híbrida"].map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></label></aside>
       <div className="feed-main"><div className="feed-count"><b>{filtered.length} oportunidades</b><span>{user?.role === "volunteer" ? "mayor compatibilidad primero" : "disponibles"}</span></div>{showMap ? <OpportunityMap opportunities={filtered} selectedId={null} onSelect={(id) => { const item = filtered.find((candidate) => candidate.id === id); if (item) onOpen(item); }} /> : filtered.map((item) => <OpportunityCard key={item.id} item={item} personalized={user?.role === "volunteer"} onOpen={() => onOpen(item)} />)}</div>

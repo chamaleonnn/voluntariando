@@ -1,6 +1,6 @@
 # Guiones de captura - tutoriales Voluntariando
 
-Estado: producidos y validados. Los cuatro reemplazos están en `public/videos/`, duran 15 segundos y conservan los nombres usados por la landing.
+Estado: producidos y validados localmente. Los cuatro videos mejorados están en `public/videos/`, duran 15 segundos y conservan los nombres usados por la landing. Los archivos anteriores permanecen como respaldo en `public/videos/originales/`.
 
 ## Especificación común
 
@@ -8,6 +8,7 @@ Estado: producidos y validados. Los cuatro reemplazos están en `public/videos/`
 - Presentación: recorrido gráfico fiel a las acciones reales, sin pantallas ni funciones inexistentes.
 - Subtítulos: integrados en zona inferior segura, máximo dos líneas, blanco sobre placa oscura semitransparente.
 - Inicio/cierre: Vía aparece 1 segundo con el título; cierre de 1 segundo con “Podés repetir este recorrido desde ?”.
+- Personaje: se utiliza el PNG original de Vía, con pañuelito scout celeste, balanceo, parpadeo y habla visual por capas. No hay audio ni se declara sincronización labial real.
 - Móvil: textos dentro del 80 % central y peso mínimo equivalente a 24 px en 720p.
 
 ## 1. Crear y completar el perfil
@@ -65,6 +66,6 @@ Perfil validado → `Nueva oportunidad` → completar tareas/habilidades → pub
 
 Estados saludo → explicación → pensamiento → celebración; mostrar minimización, reapertura y pregunta “¿Todavía no decidís dónde ayudar?”. Subtítulo final: “Vía orienta; el algoritmo conserva el control del porcentaje”.
 
-## Sustitución realizada
+## Actualización realizada
 
-Los cuatro MP4 abren correctamente, tienen duración y textos integrados, explican únicamente funciones reales y cuentan con posters actualizados. El generador reproducible queda en `scripts/generate-tutorial-videos.py`.
+Los cuatro MP4 abren correctamente, tienen duración y textos integrados, explican únicamente funciones reales y cuentan con pósteres actualizados. El contenido principal no se alteró; se añadieron únicamente las capas animadas de Vía. El generador reproducible queda en `scripts/generate-tutorial-videos.py` y los originales en `public/videos/originales/`.

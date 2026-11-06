@@ -79,6 +79,45 @@ def contain(image: Image.Image, max_width: int, max_height: int) -> Image.Image:
     return copy
 
 
+def animated_via(max_width: int, max_height: int, phase: float, talking: bool = False) -> Image.Image:
+    """Anima por capas el PNG original sin redibujar ni reemplazar a Vía."""
+    via = contain(Image.open(VIA_PATH).convert("RGBA"), max_width, max_height)
+    width, height = via.size
+    overlay = Image.new("RGBA", via.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay, "RGBA")
+
+    # Pañuelito scout celeste: pequeño, sin insignias y adaptado al mismo PNG.
+    scarf_x, scarf_y = width * .50, height * .45
+    flutter = math.sin(phase * math.tau * 1.4) * width * .012
+    draw.polygon([
+        (scarf_x, scarf_y), (width * .58, height * .46),
+        (width * .69, height * .43), (width * .73, height * .47),
+        (width * .65, height * .51), (width * .55, height * .50),
+    ], fill=(147, 217, 236, 245), outline=(66, 145, 171, 255))
+    draw.polygon([
+        (width * .59, height * .49), (width * .64, height * .50),
+        (width * .61 + flutter, height * .61), (width * .56, height * .56),
+    ], fill=(114, 198, 222, 250), outline=(61, 139, 165, 255))
+    draw.polygon([
+        (width * .63, height * .49), (width * .68, height * .48),
+        (width * .71 - flutter, height * .58), (width * .65, height * .56),
+    ], fill=(169, 227, 240, 250), outline=(61, 139, 165, 255))
+    draw.ellipse((width * .585, height * .475, width * .665, height * .535), fill=(96, 182, 207, 255), outline=(54, 129, 153, 255))
+
+    # Parpadeo muy breve para conservar la expresión original la mayor parte del tiempo.
+    blink_phase = (phase * 3.7) % 1
+    if .92 < blink_phase < .98:
+        draw.ellipse((width * .585, height * .285, width * .72, height * .34), fill=(111, 141, 101, 225))
+        draw.ellipse((width * .815, height * .205, width * .925, height * .25), fill=(111, 141, 101, 225))
+
+    # Los videos no tienen audio: esto representa habla visual, no sincronización sonora.
+    if talking:
+        mouth_open = .5 + .5 * math.sin(phase * math.tau * 5)
+        draw.arc((width * .70, height * (.425 - mouth_open * .004), width * .88, height * (.49 + mouth_open * .012)), 8, 170, fill=(66, 56, 42, 210), width=max(1, int(width * .009)))
+
+    return Image.alpha_composite(via, overlay)
+
+
 def wrap_text(draw: ImageDraw.ImageDraw, text: str, text_font, max_width: int) -> str:
     """Corta una frase sin permitir que invada a Vía ni los márgenes seguros."""
     lines, current = [], ""
@@ -118,7 +157,7 @@ def draw_progress(draw: ImageDraw.ImageDraw, active: int):
 
 def draw_intro(frame: Image.Image, data, local: float):
     draw = ImageDraw.Draw(frame, "RGBA")
-    via = contain(Image.open(VIA_PATH).convert("RGBA"), 260, 238)
+    via = animated_via(260, 238, local, talking=True)
     bounce = int(math.sin(local * math.pi * 2) * 6)
     frame.paste(via, (850, 200 + bounce), via)
     draw.text((96, 182), f"PASO {data['step']}", font=font(22, True), fill="#238563")
@@ -143,7 +182,7 @@ def draw_scene(frame: Image.Image, data, scene_index: int, local: float):
         rounded(draw, (126 + slide, y + 13, 154 + slide, y + 41), 10, "#d5eee3")
         draw.text((134 + slide, y + 14), "✓", font=font(17, True), fill="#238563")
         draw.text((174 + slide, y + 13), item, font=font(22, index == 0), fill="#29483d")
-    via = contain(Image.open(VIA_PATH).convert("RGBA"), 205, 190)
+    via = animated_via(205, 190, local + scene_index, talking=True)
     bob = int(math.sin(local * math.pi * 3) * 5)
     frame.paste(via, (994, 350 + bob), via)
     draw.text((1000, 540), f"{scene_index + 1} / 3", font=font(18, True), fill="#527066")
@@ -151,7 +190,7 @@ def draw_scene(frame: Image.Image, data, scene_index: int, local: float):
 
 def draw_outro(frame: Image.Image, data, local: float):
     draw = ImageDraw.Draw(frame, "RGBA")
-    via = contain(Image.open(VIA_PATH).convert("RGBA"), 190, 178)
+    via = animated_via(190, 178, local, talking=False)
     frame.paste(via, (546, 152), via)
     draw.text((WIDTH // 2, 354), "¡Listo!", font=font(48, True), fill="#19372c", anchor="ma")
     draw.text((WIDTH // 2, 423), "Podés repetir este recorrido desde el botón ?", font=font(25), fill="#50675f", anchor="ma")
