@@ -29,6 +29,7 @@ import {
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { analyzeSemanticCompatibility } from "@/lib/ai-service";
 import { calculateCompatibility, recommendOpportunities } from "@/lib/recommendations";
+import { viaTutorialStorageKey, viaWelcomeStorageKey } from "@/lib/via-tutorial";
 import type { AbsenceReport, AppNotification, Application, ExperienceFeedback, Invitation, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
 
 type Screen = "landing" | "opportunities" | "volunteer" | "organization" | "admin";
@@ -318,8 +319,8 @@ export default function Home() {
       ? profileLoadedFor === user.uid && volunteerProfileIsComplete(profile)
       : organizationLoadedFor === user.uid && Boolean(organizationProfile && organizationProfileIsComplete(organizationProfile));
     if (!ready) return;
-    const welcomeKey = `voluntariando-via-welcome-${user.uid}-v2`;
-    const tutorialKey = `voluntariando-tutorial-${user.uid}-${user.role}-v3`;
+    const welcomeKey = viaWelcomeStorageKey(user.uid);
+    const tutorialKey = viaTutorialStorageKey(user.uid, user.role);
     const timer = window.setTimeout(() => {
       if (!window.localStorage.getItem(welcomeKey)) setViaWelcomeOpen(true);
       else if (!window.localStorage.getItem(tutorialKey)) setTutorialOpen(true);
@@ -328,15 +329,15 @@ export default function Home() {
   }, [user, profile, profileLoadedFor, organizationProfile, organizationLoadedFor]);
 
   function finishTutorial(showVia: boolean) {
-    if (user && !user.isDemo) window.localStorage.setItem(`voluntariando-tutorial-${user.uid}-${user.role}-v3`, "done");
+    if (user && !user.isDemo && user.role !== "admin") window.localStorage.setItem(viaTutorialStorageKey(user.uid, user.role), "done");
     setTutorialOpen(false);
     if (showVia && user?.role === "volunteer") setViaPromptToken((current) => current + 1);
   }
 
   function finishViaWelcome(startTour: boolean) {
-    if (user) {
-      window.localStorage.setItem(`voluntariando-via-welcome-${user.uid}-v2`, "done");
-      if (!startTour) window.localStorage.setItem(`voluntariando-tutorial-${user.uid}-${user.role}-v3`, "skipped");
+    if (user && user.role !== "admin") {
+      window.localStorage.setItem(viaWelcomeStorageKey(user.uid), "done");
+      if (!startTour) window.localStorage.setItem(viaTutorialStorageKey(user.uid, user.role), "skipped");
     }
     setViaWelcomeOpen(false);
     if (startTour) setTutorialOpen(true);

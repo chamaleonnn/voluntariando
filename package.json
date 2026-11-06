@@ -11,8 +11,9 @@
     "start": "next start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "test:recommendations": "node --experimental-strip-types --test scripts/recommendations.test.mjs",
+    "test:via": "node --experimental-strip-types --test scripts/via-tutorial.test.mjs",
     "test:rules": "node --test scripts/firestore-rules.test.mjs",
-    "verify": "npm run lint && npm run build && npm --prefix functions run check"
+    "verify": "npm run lint && npm run build && npm run test:recommendations && npm run test:via && npm --prefix functions run check"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",

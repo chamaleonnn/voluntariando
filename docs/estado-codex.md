@@ -30,6 +30,7 @@ Actualizado: 5 de noviembre de 2026. Rama de trabajo visual: `codex/via-evolutio
 - ESLint específico de archivos modificados: aprobado.
 - Sintaxis de Firebase Function: aprobada.
 - Validación semántica de OpenAI: 2 pruebas locales aprobadas, 0 fallidas.
+- Recorridos de Vía: 4 pruebas aprobadas, 0 fallidas; comprueban destinos reales, videos y respaldos, persistencia por rol y conservación de ambos recursos gráficos.
 
 ## Bloqueado externamente
 

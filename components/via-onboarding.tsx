@@ -4,43 +4,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { ViaAvatar, type ViaState } from "@/components/via-avatar";
-
-export type TutorialRole = "volunteer" | "organization";
-export type TutorialScreen = "landing" | "opportunities" | "volunteer" | "organization" | "admin";
-
-const VIDEO_STEPS = [
-  { title: "Creá y completá tu perfil", text: "Tus intereses, habilidades, disponibilidad y ubicación ayudan a encontrar oportunidades que tengan sentido para vos.", videoSrc: "/videos/crear-perfil.mp4" },
-  { title: "Entendé tus recomendaciones", text: "Cada porcentaje combina cinco criterios. El motor propio mantiene el cálculo y Vía te ayuda a entender el resultado.", videoSrc: "/videos/recibir-recomendaciones.mp4" },
-  { title: "Mostrá interés y vinculáte", text: "Cuando una propuesta te guste, podés mostrar interés. El contacto se habilita después de la aceptación.", videoSrc: "/videos/mostrar-interes.mp4" },
-  { title: "Sumá una experiencia verificada", text: "La organización registra las tareas y habilidades observadas. Eso fortalece tu trayectoria y las próximas recomendaciones.", videoSrc: "/videos/sumar-experiencia.mp4" },
-] as const;
-
-type TourStep = {
-  title: string;
-  text: string;
-  target: string;
-  screen: TutorialScreen;
-  state?: ViaState;
-};
-
-const VOLUNTEER_STEPS: TourStep[] = [
-  { title: "Tu perfil", text: "Acá registrás intereses, habilidades, disponibilidad y ubicación. Son los datos que utiliza el motor para recomendarte oportunidades.", target: "volunteer-profile", screen: "volunteer", state: "explanation" },
-  { title: "Oportunidades disponibles", text: "En este espacio explorás propuestas reales, usás filtros y abrís cada oportunidad para conocer sus tareas.", target: "opportunity-feed", screen: "opportunities", state: "greeting" },
-  { title: "Compatibilidad y recomendaciones", text: "El porcentaje combina cinco criterios explicables. Las oportunidades con mayor coincidencia aparecen primero.", target: "volunteer-recommendations", screen: "volunteer", state: "thinking" },
-  { title: "Postulaciones e invitaciones", text: "Podés mostrar interés o responder propuestas directas. El contacto se habilita únicamente cuando existe aceptación.", target: "volunteer-invitations", screen: "volunteer", state: "talking" },
-  { title: "Participaciones", text: "Desde tus solicitudes seguís cada vínculo confirmado y luego consultás si la experiencia fue completada o quedó en revisión.", target: "volunteer-applications", screen: "volunteer", state: "explanation" },
-  { title: "Experiencias verificadas", text: "Las tareas y habilidades observadas quedan en tu trayectoria y pueden mejorar futuras recomendaciones.", target: "volunteer-experiences", screen: "volunteer", state: "celebration" },
-];
-
-const ORGANIZATION_STEPS: TourStep[] = [
-  { title: "Perfil de la organización", text: "Completá la descripción, ubicación y contacto. La validación administrativa protege a quienes participan.", target: "organization-profile", screen: "organization", state: "explanation" },
-  { title: "Publicar oportunidades", text: "Definí tareas, requisitos, habilidades, modalidad y disponibilidad con información concreta.", target: "organization-opportunities", screen: "organization", state: "talking" },
-  { title: "Encontrar voluntarios", text: "Consultá únicamente los perfiles que autorizaron ser visibles y enviá invitaciones desde esta sección.", target: "organization-volunteers", screen: "organization", state: "greeting" },
-  { title: "Invitaciones enviadas", text: "Podés seguir cada propuesta directa hasta que la persona la acepte o la rechace.", target: "organization-invitations", screen: "organization", state: "explanation" },
-  { title: "Postulaciones y participaciones", text: "Revisá las solicitudes, aceptá o rechazá y registrá la experiencia realizada o una ausencia.", target: "organization-applications", screen: "organization", state: "thinking" },
-  { title: "Tareas y habilidades verificadas", text: "Al finalizar, detallá qué hizo la persona y qué habilidades observaste. Esa evidencia actualiza su trayectoria.", target: "organization-applications", screen: "organization", state: "celebration" },
-];
+import { ViaAvatar } from "@/components/via-avatar";
+import { VIA_TOUR_STEPS, VIA_VIDEO_STEPS, type TutorialRole, type TutorialScreen } from "@/lib/via-tutorial";
 
 function useTypewriter(text: string, active = true) {
   const [length, setLength] = useState(active ? 0 : text.length);
@@ -99,8 +64,8 @@ export function ViaVideoWelcome({ role, open, onOmit, onStartTour }: { role: Tut
   const [step, setStep] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
   const intro = step === 0;
-  const current = VIDEO_STEPS[Math.max(0, step - 1)];
-  const last = step === VIDEO_STEPS.length;
+  const current = VIA_VIDEO_STEPS[Math.max(0, step - 1)];
+  const last = step === VIA_VIDEO_STEPS.length;
   const message = intro
     ? role === "volunteer"
       ? "¡Hola! Soy Vía y voy a acompañarte en Voluntariando. Acá vas a encontrar formas de ayudar, compartir tus habilidades y vivir nuevas experiencias. ¿Te muestro cómo funciona?"
@@ -135,8 +100,8 @@ export function ViaVideoWelcome({ role, open, onOmit, onStartTour }: { role: Tut
           </div>
         </> : <>
           <div className="via-welcome-video"><video key={current.videoSrc} src={current.videoSrc} controls muted playsInline preload="metadata">Tu navegador no puede reproducir este video.</video></div>
-          <div className="via-welcome-explanation"><ViaAvatar state={last ? "celebration" : "talking"} size={150} /><div><span>Vía explica · {step} de {VIDEO_STEPS.length}</span><h2 id="via-welcome-title">{current.title}</h2><p aria-live="polite">{typewriter.visibleText}<span className="typewriter-cursor" aria-hidden="true" /></p>{!typewriter.complete && <button className="typewriter-skip" onClick={typewriter.showAll}>Mostrar todo el texto</button>}</div></div>
-          <div className="via-welcome-progress" aria-label={`Video ${step} de ${VIDEO_STEPS.length}`}>{VIDEO_STEPS.map((item, index) => <i key={item.title} className={index < step ? "active" : ""} />)}</div>
+          <div className="via-welcome-explanation"><ViaAvatar state={last ? "celebration" : "talking"} size={150} /><div><span>Vía explica · {step} de {VIA_VIDEO_STEPS.length}</span><h2 id="via-welcome-title">{current.title}</h2><p aria-live="polite">{typewriter.visibleText}<span className="typewriter-cursor" aria-hidden="true" /></p>{!typewriter.complete && <button className="typewriter-skip" onClick={typewriter.showAll}>Mostrar todo el texto</button>}</div></div>
+          <div className="via-welcome-progress" aria-label={`Video ${step} de ${VIA_VIDEO_STEPS.length}`}>{VIA_VIDEO_STEPS.map((item, index) => <i key={item.title} className={index < step ? "active" : ""} />)}</div>
           <div className="via-welcome-actions"><Button variant="ghost" onClick={omit}>Omitir tutorial</Button>{step > 1 && <Button variant="outline" onClick={() => setStep((value) => value - 1)}>Anterior</Button>}<Button onClick={() => last ? startTour() : setStep((value) => value + 1)}>{last ? "Comenzar recorrido" : "Siguiente"}</Button></div>
         </>}
       </section>
@@ -155,7 +120,7 @@ export function WelcomeTutorial({ role, open, screen, onNavigate, onOpenChange, 
   const [step, setStep] = useState(0);
   const [cardStyle, setCardStyle] = useState<CSSProperties>({});
   const cardRef = useRef<HTMLElement>(null);
-  const steps = useMemo(() => role === "volunteer" ? VOLUNTEER_STEPS : ORGANIZATION_STEPS, [role]);
+  const steps = useMemo(() => VIA_TOUR_STEPS[role], [role]);
   const current = steps[step];
   const last = step === steps.length - 1;
   const typewriter = useTypewriter(current.text, open);
