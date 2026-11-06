@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
-import { VIA_TOUR_STEPS, VIA_VIDEO_STEPS, VIA_WELCOME_DIALOGUES, viaTutorialStorageKey, viaWelcomeStorageKey } from "../lib/via-tutorial.ts";
+import { VIA_TOUR_STEPS, VIA_VIDEO_STEPS, VIA_WELCOME_DIALOGUES, viaMilestoneStorageKey, viaTutorialStorageKey, viaWelcomeStorageKey } from "../lib/via-tutorial.ts";
 
 const pageSource = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
 
@@ -38,6 +38,7 @@ test("los cuatro videos y sus respaldos existen", () => {
 test("las claves de persistencia son estables y separadas por rol", () => {
   assert.equal(viaWelcomeStorageKey("usuario-1"), "voluntariando-via-welcome-usuario-1-v3");
   assert.notEqual(viaTutorialStorageKey("usuario-1", "volunteer"), viaTutorialStorageKey("usuario-1", "organization"));
+  assert.notEqual(viaMilestoneStorageKey("usuario-1", "volunteer"), viaMilestoneStorageKey("usuario-1", "organization"));
 });
 
 test("la variante integrada de Vía y el original permanecen disponibles", () => {

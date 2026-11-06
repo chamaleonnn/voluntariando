@@ -30,7 +30,7 @@ export const VIA_WELCOME_DIALOGUES: Record<TutorialRole, Array<{ text: string; s
 // Estos videos corresponden a acciones que existen realmente en la aplicación.
 export const VIA_VIDEO_STEPS = [
   { title: "Creá y completá tu perfil", text: "Tus intereses, habilidades, disponibilidad y ubicación ayudan a encontrar oportunidades que tengan sentido para vos.", videoSrc: "/videos/crear-perfil.mp4" },
-  { title: "Entendé tus recomendaciones", text: "Cada porcentaje combina cinco criterios. El motor propio mantiene el cálculo y Vía te ayuda a entender el resultado.", videoSrc: "/videos/recibir-recomendaciones.mp4" },
+  { title: "Entendé tus recomendaciones", text: "Cada porcentaje resume cuánto coincide una oportunidad con tu perfil. Vía te ayuda a entender por qué puede ser una buena opción.", videoSrc: "/videos/recibir-recomendaciones.mp4" },
   { title: "Mostrá interés y vinculáte", text: "Cuando una propuesta te guste, podés mostrar interés. El contacto se habilita después de la aceptación.", videoSrc: "/videos/mostrar-interes.mp4" },
   { title: "Sumá una experiencia verificada", text: "La organización registra las tareas y habilidades observadas. Eso fortalece tu trayectoria y las próximas recomendaciones.", videoSrc: "/videos/sumar-experiencia.mp4" },
 ] as const;
@@ -38,7 +38,7 @@ export const VIA_VIDEO_STEPS = [
 const VOLUNTEER_STEPS: ViaTourStep[] = [
   { title: "Tu perfil", text: "Acá registrás intereses, habilidades, disponibilidad y ubicación. Probá abrir la edición: voy a esperar tu acción.", target: "volunteer-profile", screen: "volunteer", state: "explanation", actionTarget: "volunteer-edit-profile", actionLabel: "Abrir mi perfil", actionHint: "Cuando se abra, continuamos automáticamente." },
   { title: "Oportunidades disponibles", text: "Este buscador te permite explorar propuestas reales. Tocá el campo para probarlo y seguimos.", target: "opportunity-feed", screen: "opportunities", state: "greeting", actionTarget: "opportunity-search", actionLabel: "Probar el buscador", actionHint: "No hace falta escribir nada todavía." },
-  { title: "Compatibilidad y recomendaciones", text: "El porcentaje combina cinco criterios explicables. Las oportunidades con mayor coincidencia aparecen primero.", target: "volunteer-recommendations", screen: "volunteer", state: "thinking" },
+  { title: "Recomendaciones para vos", text: "El porcentaje muestra cuánto coincide cada propuesta con tus intereses y experiencia. Las opciones más cercanas a vos aparecen primero.", target: "volunteer-recommendations", screen: "volunteer", state: "thinking" },
   { title: "Postulaciones e invitaciones", text: "Podés mostrar interés o responder propuestas directas. El contacto se habilita únicamente cuando existe aceptación.", target: "volunteer-invitations", screen: "volunteer", state: "talking" },
   { title: "Participaciones", text: "Desde tus solicitudes seguís cada vínculo confirmado y luego consultás si la experiencia fue completada o quedó en revisión.", target: "volunteer-applications", screen: "volunteer", state: "explanation" },
   { title: "Experiencias verificadas", text: "Las tareas y habilidades observadas quedan en tu trayectoria y pueden mejorar futuras recomendaciones.", target: "volunteer-experiences", screen: "volunteer", state: "celebration" },
@@ -65,4 +65,8 @@ export function viaWelcomeStorageKey(userId: string) {
 
 export function viaTutorialStorageKey(userId: string, role: TutorialRole) {
   return `voluntariando-tutorial-${userId}-${role}-v4`;
+}
+
+export function viaMilestoneStorageKey(userId: string, role: TutorialRole) {
+  return `voluntariando-via-first-experience-${userId}-${role}-v1`;
 }

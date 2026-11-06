@@ -254,3 +254,37 @@ export function WelcomeTutorial({ role, open, screen, onNavigate, onOpenChange, 
     </aside>
   );
 }
+
+export function ViaMilestoneCelebration({ role, open, onClose }: { role: TutorialRole; open: boolean; onClose: () => void }) {
+  const [leaving, setLeaving] = useState(false);
+  const message = role === "volunteer"
+    ? "¡Eh, felicitaciones! Estoy muy contento porque lograste tu primera vinculación y convertiste tus ganas de ayudar en una experiencia real. Este es el comienzo de algo muy lindo."
+    : "¡Eh, felicitaciones! Estoy muy contento porque le brindaron a alguien la oportunidad de ayudar, aprender y mejorar el mundo junto a ustedes. Gracias por abrir ese espacio.";
+  const typewriter = useTypewriter(message, open);
+  const modalRef = useModalFocus(open, onClose);
+
+  function finish() {
+    if (!typewriter.complete) return typewriter.showAll();
+    setLeaving(true);
+    window.setTimeout(() => {
+      setLeaving(false);
+      onClose();
+    }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 800);
+  }
+
+  if (!open) return null;
+  return (
+    <div className={`via-milestone-backdrop ${leaving ? "is-leaving" : ""}`}>
+      <section ref={modalRef} className="via-milestone-scene" role="dialog" aria-modal="true" aria-labelledby="via-milestone-title">
+        <div className="via-milestone-sparkles" aria-hidden="true"><i>✦</i><i>✧</i><i>✦</i></div>
+        <ViaAvatar state={leaving ? "farewell" : "celebration"} size={380} />
+        <div className="via-milestone-dialogue">
+          <span><Sparkles /> Un momento para celebrar</span>
+          <h2 id="via-milestone-title">{role === "volunteer" ? "¡Tu primera experiencia!" : "¡La primera experiencia que hicieron posible!"}</h2>
+          <p aria-live="polite">{typewriter.visibleText}<span className="typewriter-cursor" aria-hidden="true" /></p>
+          <Button size="lg" onClick={finish}>{typewriter.complete ? "Seguir construyendo comunidad" : "Escuchar a Vía"} <ArrowRight /></Button>
+        </div>
+      </section>
+    </div>
+  );
+}

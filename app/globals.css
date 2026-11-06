@@ -529,6 +529,23 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .via-finale-dialogue button { justify-self: end; }
 .via-finale-backdrop.is-leaving .via-finale-dialogue { animation: via-panel-away .7s ease both; }
 
+.via-milestone-backdrop { position: fixed; inset: 0; z-index: 195; display: grid; place-items: center; padding: 24px; overflow: auto; background: radial-gradient(circle at 28% 42%, rgba(102,214,190,.2), transparent 34%), rgba(9,21,18,.82); backdrop-filter: blur(24px) saturate(118%); animation: assistant-open .35s ease both; }
+.via-milestone-scene { position: relative; width: min(980px, 100%); display: grid; grid-template-columns: .85fr 1.15fr; align-items: center; gap: 28px; outline: none; }
+.via-milestone-scene > .via-avatar { justify-self: center; filter: drop-shadow(0 34px 32px rgba(0,0,0,.28)); }
+.via-milestone-dialogue { display: grid; gap: 16px; padding: clamp(28px, 4vw, 48px); border: 1px solid rgba(255,255,255,.18); border-radius: 10px 34px 34px 34px; background: var(--glass-surface-strong); box-shadow: 0 34px 110px rgba(0,0,0,.35); }
+.via-milestone-dialogue > span { display: flex; align-items: center; gap: 7px; color: var(--primary); font-size: .72rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+.via-milestone-dialogue > span svg { width: 15px; }
+.via-milestone-dialogue h2 { margin: 0; font-size: clamp(2.2rem, 4.5vw, 4.3rem); line-height: .98; letter-spacing: -.05em; }
+.via-milestone-dialogue p { min-height: 6em; margin: 0; color: var(--foreground); font-size: 1.02rem; line-height: 1.7; }
+.via-milestone-dialogue button { justify-self: end; }
+.via-milestone-sparkles { position: absolute; inset: 0; pointer-events: none; }
+.via-milestone-sparkles i { position: absolute; color: #8fe3d1; font-size: 2rem; font-style: normal; animation: via-sparkle 1.5s ease-in-out infinite alternate; }
+.via-milestone-sparkles i:nth-child(1) { left: 4%; top: 9%; }
+.via-milestone-sparkles i:nth-child(2) { left: 39%; top: 4%; animation-delay: .25s; }
+.via-milestone-sparkles i:nth-child(3) { left: 32%; bottom: 8%; animation-delay: .5s; }
+.via-milestone-backdrop.is-leaving .via-milestone-dialogue { animation: via-panel-away .7s ease both; }
+@keyframes via-sparkle { from { opacity: .35; transform: scale(.8) rotate(-8deg); } to { opacity: 1; transform: scale(1.15) rotate(8deg); } }
+
 @keyframes via-character-enter { from { opacity: 0; transform: translate3d(-22vw, 35px, 0) scale(.76) rotate(-5deg); } 65% { opacity: 1; transform: translate3d(14px,-5px,0) scale(1.03) rotate(1deg); } to { transform: none; } }
 @keyframes via-dialogue-enter { from { opacity: 0; transform: translateY(28px) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes via-scene-pulse { from { transform: scale(.94); opacity: .5; } to { transform: scale(1.05); opacity: .8; } }
@@ -861,6 +878,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .via-finale-dialogue { gap: 12px; padding: 22px 18px; border-radius: 8px 22px 22px 22px; }
   .via-finale-dialogue h2 { font-size: 2rem; }
   .via-finale-dialogue p { min-height: 5em; font-size: .86rem; }
+  .via-milestone-backdrop { align-items: start; padding: 10px; }
+  .via-milestone-scene { min-height: calc(100dvh - 20px); grid-template-columns: 1fr; align-content: center; gap: 0; }
+  .via-milestone-scene > .via-avatar { width: 235px !important; height: 235px !important; margin-bottom: -20px; }
+  .via-milestone-dialogue { gap: 12px; padding: 22px 18px; border-radius: 8px 22px 22px 22px; }
+  .via-milestone-dialogue h2 { font-size: 2rem; }
+  .via-milestone-dialogue p { min-height: 7em; font-size: .86rem; line-height: 1.55; }
 }
 
 @media (prefers-reduced-motion: reduce) {
