@@ -15,7 +15,7 @@ Actualizado: 5 de noviembre de 2026. Rama de trabajo visual: `codex/via-evolutio
 - Ajustes móviles de diálogos, formularios, acciones administrativas y textos accesibles sin cambiar el diseño general.
 - Privacidad efectiva para perfiles visibles a organizaciones/voluntarios, comunidad de voluntarios con redes opcionales y correos habilitados únicamente después de una aceptación.
 - Validador local de respuestas semánticas: limita a cinco relaciones, exige estructura válida y descarta evidencias inventadas antes de afectar el motor.
-- Vía visual reutiliza exclusivamente `public/via-mecha.png`: ocho estados animados, parpadeo, habla visual, expresiones, pañuelito scout celeste vectorial, minimización y adaptación móvil.
+- Vía conserva `public/via-mecha.png` como original y utiliza `public/via-mecha-scout.png` como variante integrada: ocho estados animados, parpadeo, habla visual, expresiones, pañuelito scout con textura 3D, minimización y adaptación móvil.
 - Bienvenida tipo videojuego posterior al perfil obligatorio: modal protagonista, texto progresivo, foco controlado, teclado, omisión y transición continua de Vía grande al acompañante pequeño.
 - Recorrido guiado por componentes reales: seis etapas por rol, cambio de pantalla, posicionamiento contextual, resaltado, anterior/siguiente, omisión, reinicio manual y persistencia local por usuario.
 - Cuatro videos de la landing regenerados en H.264, 1280×720, 30 fps y 15 segundos, conservando guion y contenido; Vía incorpora pañuelito, parpadeo, movimiento y habla visual. Originales preservados en `public/videos/originales/`.

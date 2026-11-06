@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "public" / "videos"
-VIA_PATH = ROOT / "public" / "via-mecha.png"
+VIA_PATH = ROOT / "public" / "via-mecha-scout.png"
 WIDTH, HEIGHT, FPS, DURATION = 1280, 720, 30, 15
 
 
@@ -85,29 +85,6 @@ def animated_via(max_width: int, max_height: int, phase: float, talking: bool = 
     width, height = via.size
     overlay = Image.new("RGBA", via.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay, "RGBA")
-
-    # Pañuelito scout celeste: pequeño, sin insignias y adaptado al mismo PNG.
-    scarf_x, scarf_y = width * .505, height * .425
-    flutter = math.sin(phase * math.tau * 1.4) * width * .008
-    draw.polygon([
-        (scarf_x, scarf_y), (width * .57, height * .455),
-        (width * .68, height * .46), (width * .76, height * .415),
-        (width * .775, height * .455), (width * .70, height * .505),
-        (width * .59, height * .505), (width * .50, height * .46),
-    ], fill=(131, 208, 226, 242), outline=(76, 158, 178, 255))
-    draw.line([
-        (width * .52, height * .445), (width * .59, height * .477),
-        (width * .68, height * .482), (width * .745, height * .445),
-    ], fill=(190, 237, 244, 215), width=max(1, int(width * .007)))
-    draw.polygon([
-        (width * .625, height * .49), (width * .66, height * .495),
-        (width * .635 + flutter, height * .595), (width * .60, height * .56),
-    ], fill=(111, 194, 215, 245), outline=(76, 158, 178, 255))
-    draw.polygon([
-        (width * .65, height * .492), (width * .69, height * .485),
-        (width * .71 - flutter, height * .58), (width * .67, height * .55),
-    ], fill=(158, 220, 232, 245), outline=(76, 158, 178, 255))
-    draw.ellipse((width * .635, height * .474, width * .682, height * .525), fill=(93, 179, 202, 252), outline=(66, 143, 163, 255))
 
     # Parpadeo muy breve para conservar la expresión original la mayor parte del tiempo.
     blink_phase = (phase * 3.7) % 1

@@ -8,7 +8,7 @@ Estado: producidos y validados localmente. Los cuatro videos mejorados están en
 - Presentación: recorrido gráfico fiel a las acciones reales, sin pantallas ni funciones inexistentes.
 - Subtítulos: integrados en zona inferior segura, máximo dos líneas, blanco sobre placa oscura semitransparente.
 - Inicio/cierre: Vía aparece 1 segundo con el título; cierre de 1 segundo con “Podés repetir este recorrido desde ?”.
-- Personaje: se utiliza el PNG original de Vía, con pañuelito scout celeste, balanceo, parpadeo y habla visual por capas. No hay audio ni se declara sincronización labial real.
+- Personaje: se conserva el PNG original de Vía y se utiliza una variante con el pañuelito integrado en el mismo acabado 3D, además de balanceo, parpadeo y habla visual. No hay audio ni se declara sincronización labial real.
 - Móvil: textos dentro del 80 % central y peso mínimo equivalente a 24 px en 720p.
 
 ## 1. Crear y completar el perfil
