@@ -87,22 +87,22 @@ def animated_via(max_width: int, max_height: int, phase: float, talking: bool = 
     draw = ImageDraw.Draw(overlay, "RGBA")
 
     # Pañuelito scout celeste: pequeño, sin insignias y adaptado al mismo PNG.
-    scarf_x, scarf_y = width * .50, height * .45
-    flutter = math.sin(phase * math.tau * 1.4) * width * .012
+    scarf_x, scarf_y = width * .54, height * .455
+    flutter = math.sin(phase * math.tau * 1.4) * width * .006
     draw.polygon([
-        (scarf_x, scarf_y), (width * .58, height * .46),
-        (width * .69, height * .43), (width * .73, height * .47),
-        (width * .65, height * .51), (width * .55, height * .50),
-    ], fill=(147, 217, 236, 245), outline=(66, 145, 171, 255))
+        (scarf_x, scarf_y), (width * .59, height * .47),
+        (width * .68, height * .445), (width * .70, height * .466),
+        (width * .655, height * .493), (width * .57, height * .49),
+    ], fill=(157, 207, 219, 232), outline=(100, 153, 165, 245))
     draw.polygon([
-        (width * .59, height * .49), (width * .64, height * .50),
-        (width * .61 + flutter, height * .61), (width * .56, height * .56),
-    ], fill=(114, 198, 222, 250), outline=(61, 139, 165, 255))
+        (width * .605, height * .485), (width * .635, height * .49),
+        (width * .615 + flutter, height * .565), (width * .59, height * .54),
+    ], fill=(131, 189, 202, 238), outline=(100, 153, 165, 245))
     draw.polygon([
-        (width * .63, height * .49), (width * .68, height * .48),
-        (width * .71 - flutter, height * .58), (width * .65, height * .56),
-    ], fill=(169, 227, 240, 250), outline=(61, 139, 165, 255))
-    draw.ellipse((width * .585, height * .475, width * .665, height * .535), fill=(96, 182, 207, 255), outline=(54, 129, 153, 255))
+        (width * .63, height * .487), (width * .66, height * .482),
+        (width * .675 - flutter, height * .55), (width * .645, height * .535),
+    ], fill=(175, 216, 224, 238), outline=(100, 153, 165, 245))
+    draw.ellipse((width * .612, height * .476, width * .653, height * .513), fill=(120, 174, 186, 245), outline=(90, 141, 152, 255))
 
     # Parpadeo muy breve para conservar la expresión original la mayor parte del tiempo.
     blink_phase = (phase * 3.7) % 1

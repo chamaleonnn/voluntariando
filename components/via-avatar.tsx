@@ -30,10 +30,10 @@ export function ViaAvatar({ state = "idle", size = 76, label = "Vía, asistente 
       <span className="via-mouth" aria-hidden="true" />
       <span className="via-scarf" aria-hidden="true">
         <svg viewBox="0 0 120 88" focusable="false">
-          <path className="via-scarf-band" d="M12 9c25 20 65 23 95 2l5 17c-33 24-77 24-107-2z" />
-          <path className="via-scarf-tip" d="m59 35-18 43 23-16 7-28z" />
-          <path className="via-scarf-tip via-scarf-tip-right" d="m66 36 12 44 14-24-12-27z" />
-          <path className="via-scarf-knot" d="M52 30c8-6 22-5 29 2l-5 18c-8 5-18 4-25-2z" />
+          <path className="via-scarf-band" d="M10 15c28 17 66 19 99-2l3 12C79 47 39 44 9 28z" />
+          <path className="via-scarf-tip" d="m60 37-8 35 13-11 4-25z" />
+          <path className="via-scarf-tip via-scarf-tip-right" d="m68 37 7 33 10-17-8-20z" />
+          <path className="via-scarf-knot" d="M57 31c6-4 15-3 20 1l-3 13c-6 4-12 3-18-1z" />
         </svg>
       </span>
       {symbol && <i aria-hidden="true">{symbol}</i>}
