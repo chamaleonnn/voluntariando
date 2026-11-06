@@ -9,6 +9,22 @@ export type ViaTourStep = {
   target: string;
   screen: TutorialScreen;
   state?: ViaTourState;
+  actionTarget?: string;
+  actionLabel?: string;
+  actionHint?: string;
+};
+
+export const VIA_WELCOME_DIALOGUES: Record<TutorialRole, Array<{ text: string; state: ViaTourState }>> = {
+  volunteer: [
+    { text: "¡Hola! Soy Vía. ¡Qué bueno que estés acá!", state: "greeting" },
+    { text: "En Voluntariando hay muchas formas de ayudar. Yo voy a acompañarte para encontrar las que mejor conecten con vos.", state: "talking" },
+    { text: "Primero te muestro lo esencial y después recorremos la aplicación juntos. ¿Vamos?", state: "explanation" },
+  ],
+  organization: [
+    { text: "¡Hola! Soy Vía. ¡Qué bueno recibir a tu organización!", state: "greeting" },
+    { text: "Voy a acompañarlos para publicar oportunidades claras, conocer voluntarios y registrar cada experiencia.", state: "talking" },
+    { text: "Primero te muestro lo esencial y después recorremos la aplicación juntos. ¿Vamos?", state: "explanation" },
+  ],
 };
 
 // Estos videos corresponden a acciones que existen realmente en la aplicación.
@@ -20,8 +36,8 @@ export const VIA_VIDEO_STEPS = [
 ] as const;
 
 const VOLUNTEER_STEPS: ViaTourStep[] = [
-  { title: "Tu perfil", text: "Acá registrás intereses, habilidades, disponibilidad y ubicación. Son los datos que utiliza el motor para recomendarte oportunidades.", target: "volunteer-profile", screen: "volunteer", state: "explanation" },
-  { title: "Oportunidades disponibles", text: "En este espacio explorás propuestas reales, usás filtros y abrís cada oportunidad para conocer sus tareas.", target: "opportunity-feed", screen: "opportunities", state: "greeting" },
+  { title: "Tu perfil", text: "Acá registrás intereses, habilidades, disponibilidad y ubicación. Probá abrir la edición: voy a esperar tu acción.", target: "volunteer-profile", screen: "volunteer", state: "explanation", actionTarget: "volunteer-edit-profile", actionLabel: "Abrir mi perfil", actionHint: "Cuando se abra, continuamos automáticamente." },
+  { title: "Oportunidades disponibles", text: "Este buscador te permite explorar propuestas reales. Tocá el campo para probarlo y seguimos.", target: "opportunity-feed", screen: "opportunities", state: "greeting", actionTarget: "opportunity-search", actionLabel: "Probar el buscador", actionHint: "No hace falta escribir nada todavía." },
   { title: "Compatibilidad y recomendaciones", text: "El porcentaje combina cinco criterios explicables. Las oportunidades con mayor coincidencia aparecen primero.", target: "volunteer-recommendations", screen: "volunteer", state: "thinking" },
   { title: "Postulaciones e invitaciones", text: "Podés mostrar interés o responder propuestas directas. El contacto se habilita únicamente cuando existe aceptación.", target: "volunteer-invitations", screen: "volunteer", state: "talking" },
   { title: "Participaciones", text: "Desde tus solicitudes seguís cada vínculo confirmado y luego consultás si la experiencia fue completada o quedó en revisión.", target: "volunteer-applications", screen: "volunteer", state: "explanation" },
@@ -29,8 +45,8 @@ const VOLUNTEER_STEPS: ViaTourStep[] = [
 ];
 
 const ORGANIZATION_STEPS: ViaTourStep[] = [
-  { title: "Perfil de la organización", text: "Completá la descripción, ubicación y contacto. La validación administrativa protege a quienes participan.", target: "organization-profile", screen: "organization", state: "explanation" },
-  { title: "Publicar oportunidades", text: "Definí tareas, requisitos, habilidades, modalidad y disponibilidad con información concreta.", target: "organization-opportunities", screen: "organization", state: "talking" },
+  { title: "Perfil de la organización", text: "La descripción, ubicación y contacto generan confianza. Abrí la edición para reconocer dónde se actualizan.", target: "organization-profile", screen: "organization", state: "explanation", actionTarget: "organization-edit-profile", actionLabel: "Abrir el perfil", actionHint: "Solo vamos a abrirlo; no se guardará ningún cambio." },
+  { title: "Publicar oportunidades", text: "Acá se definen tareas, requisitos, habilidades y modalidad. Probá abrir una nueva publicación.", target: "organization-opportunities", screen: "organization", state: "talking", actionTarget: "organization-new-opportunity", actionLabel: "Ver dónde publicar", actionHint: "Si la validación está pendiente, te mostraré dónde se habilitará." },
   { title: "Encontrar voluntarios", text: "Consultá únicamente los perfiles que autorizaron ser visibles y enviá invitaciones desde esta sección.", target: "organization-volunteers", screen: "organization", state: "greeting" },
   { title: "Invitaciones enviadas", text: "Podés seguir cada propuesta directa hasta que la persona la acepte o la rechace.", target: "organization-invitations", screen: "organization", state: "explanation" },
   { title: "Postulaciones y participaciones", text: "Revisá las solicitudes, aceptá o rechazá y registrá la experiencia realizada o una ausencia.", target: "organization-applications", screen: "organization", state: "thinking" },
@@ -44,9 +60,9 @@ export const VIA_TOUR_STEPS: Record<TutorialRole, ViaTourStep[]> = {
 
 // La versión forma parte de la clave para volver a mostrar recorridos renovados.
 export function viaWelcomeStorageKey(userId: string) {
-  return `voluntariando-via-welcome-${userId}-v2`;
+  return `voluntariando-via-welcome-${userId}-v3`;
 }
 
 export function viaTutorialStorageKey(userId: string, role: TutorialRole) {
-  return `voluntariando-tutorial-${userId}-${role}-v3`;
+  return `voluntariando-tutorial-${userId}-${role}-v4`;
 }

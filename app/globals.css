@@ -489,6 +489,52 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @keyframes via-cursor { 50% { opacity: 0; } }
 @keyframes via-panel-away { to { opacity: 0; transform: scale(.96); } }
 @keyframes via-shrink-to-guide { from { transform: translate(-50%, -50%) scale(1); } to { transform: translate(calc(-50vw + 96px), calc(50vh - 130px)) scale(.3); } }
+
+/* La bienvenida funciona como una escena narrativa, no como un modal convencional. */
+.via-welcome.story { position: relative; width: 100%; height: 100%; max-height: none; overflow: hidden; display: grid; grid-template-columns: minmax(320px, .9fr) minmax(420px, 1.1fr); align-items: center; gap: 2vw; padding: clamp(32px, 6vw, 90px); border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.via-scene-light { position: absolute; left: 8%; top: 8%; width: 46vw; height: 78vh; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--primary), transparent 60%), transparent 68%); filter: blur(18px); opacity: .72; animation: via-scene-pulse 4s ease-in-out infinite alternate; }
+.via-welcome-character { position: relative; z-index: 2; min-height: 480px; display: grid; place-items: center; background: none; animation: via-character-enter .9s cubic-bezier(.18,.8,.25,1) both; }
+.via-welcome-character .via-avatar { filter: drop-shadow(0 38px 34px rgba(0,0,0,.24)); }
+.via-dialogue-box { position: relative; z-index: 3; align-self: end; width: min(670px, 100%); margin-bottom: 7vh; display: grid; gap: 15px; padding: clamp(24px, 3vw, 40px); border: 1px solid rgba(255,255,255,.18); border-radius: 10px 32px 32px 32px; background: color-mix(in srgb, var(--glass-surface-strong), transparent 4%); box-shadow: 0 28px 90px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.35); backdrop-filter: blur(32px) saturate(120%); animation: via-dialogue-enter .55s .28s ease both; }
+.via-dialogue-box::before { content: ""; position: absolute; left: -22px; top: 0; width: 28px; height: 30px; background: inherit; clip-path: polygon(100% 0, 100% 100%, 0 0); }
+.via-dialogue-box > span, .via-finale-dialogue > span { display: flex; align-items: center; gap: 7px; color: var(--primary); font-size: .72rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+.via-dialogue-box > span svg, .via-finale-dialogue > span svg { width: 15px; }
+.via-dialogue-box h1 { margin: 0; font-size: clamp(2rem, 4vw, 4rem); line-height: 1; letter-spacing: -.045em; }
+.via-dialogue-box > p { min-height: 3.5em; margin: 0; color: var(--foreground); font-size: clamp(1rem, 1.5vw, 1.25rem); line-height: 1.65; }
+.via-dialogue-controls { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.via-dialogue-dots { display: flex; justify-content: flex-end; gap: 6px; }
+.via-dialogue-dots i { width: 22px; height: 4px; border-radius: 999px; background: var(--muted); transition: width .2s ease, background .2s ease; }
+.via-dialogue-dots i.active { width: 38px; background: var(--primary); }
+
+/* Durante el recorrido Vía queda fuera del panel para conservar presencia de personaje. */
+.tour-card { overflow: visible; padding-top: 52px; }
+.tour-via { min-height: 58px; margin: 0 0 8px; }
+.tour-via .via-avatar { position: absolute; left: 14px; top: -62px; z-index: 2; filter: drop-shadow(0 18px 18px rgba(20,45,38,.24)); transition: transform .3s ease; }
+.tour-via > div { margin-left: 104px; }
+.tour-card.is-success { border-color: color-mix(in srgb, var(--primary), transparent 28%); animation: tour-success .5s ease both; }
+.tour-action-prompt { display: flex; align-items: center; gap: 10px; margin: 12px 0; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--primary), transparent 88%); color: var(--primary); }
+.tour-action-prompt > svg { width: 20px; flex: 0 0 auto; animation: tour-pointer 1.2s ease-in-out infinite; }
+.tour-action-prompt > div { display: grid; gap: 1px; }
+.tour-action-prompt b { font-size: .72rem; }
+.tour-action-prompt small { color: var(--muted-foreground); font-size: .62rem; }
+.tour-action-highlight { position: relative; z-index: 122 !important; animation: tour-action-pulse 1.15s ease-in-out infinite !important; }
+
+/* El cierre vuelve a dar protagonismo a Vía antes de retirarlo. */
+.via-finale-backdrop { position: fixed; inset: 0; z-index: 190; display: grid; place-items: center; padding: 24px; overflow: auto; background: rgba(9,21,18,.78); backdrop-filter: blur(22px) saturate(112%); animation: assistant-open .35s ease both; }
+.via-finale-scene { width: min(950px, 100%); display: grid; grid-template-columns: .8fr 1.2fr; align-items: center; gap: 30px; outline: none; }
+.via-finale-scene > .via-avatar { justify-self: center; }
+.via-finale-dialogue { display: grid; gap: 16px; padding: clamp(26px, 4vw, 46px); border: 1px solid var(--glass-border); border-radius: 10px 32px 32px 32px; background: var(--glass-surface-strong); box-shadow: 0 32px 100px rgba(0,0,0,.32); }
+.via-finale-dialogue h2 { margin: 0; font-size: clamp(2.1rem, 4vw, 4rem); line-height: 1; letter-spacing: -.045em; }
+.via-finale-dialogue p { min-height: 4.5em; margin: 0; color: var(--muted-foreground); font-size: 1rem; line-height: 1.65; }
+.via-finale-dialogue button { justify-self: end; }
+.via-finale-backdrop.is-leaving .via-finale-dialogue { animation: via-panel-away .7s ease both; }
+
+@keyframes via-character-enter { from { opacity: 0; transform: translate3d(-22vw, 35px, 0) scale(.76) rotate(-5deg); } 65% { opacity: 1; transform: translate3d(14px,-5px,0) scale(1.03) rotate(1deg); } to { transform: none; } }
+@keyframes via-dialogue-enter { from { opacity: 0; transform: translateY(28px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes via-scene-pulse { from { transform: scale(.94); opacity: .5; } to { transform: scale(1.05); opacity: .8; } }
+@keyframes tour-pointer { 0%,100% { transform: translate(0,0); } 50% { transform: translate(4px,-3px); } }
+@keyframes tour-action-pulse { 0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary), transparent 50%); } 50% { box-shadow: 0 0 0 8px transparent; } }
+@keyframes tour-success { 50% { transform: scale(1.015); } }
 .volunteer-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .volunteer-card-grid article { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 15px; background: color-mix(in srgb, var(--card), transparent 8%); }
 .volunteer-card-grid article > div { min-width: 0; display: grid; gap: 2px; }
@@ -783,11 +829,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .admin-list > div { align-items: flex-start; flex-wrap: wrap; }
   .admin-list > div > button { width: 100%; }
   .tour-card { left: 10px !important; right: 10px; top: auto !important; bottom: 76px !important; width: auto; max-height: min(58dvh, 480px); padding: 14px; border-radius: 20px; }
-  .tour-via .via-avatar { width: 58px !important; height: 58px !important; }
+  .tour-card { padding-top: 42px; overflow-y: auto; }
+  .tour-via .via-avatar { left: 9px; top: -39px; width: 76px !important; height: 76px !important; }
+  .tour-via > div { margin-left: 68px; }
   .tour-actions > button { flex: 1 1 90px; }
   .tour-highlight { outline-width: 3px; outline-offset: 3px; }
   .via-welcome-backdrop { align-items: start; padding: 10px; }
   .via-welcome { max-height: calc(100dvh - 20px); border-radius: 24px; }
+  .via-welcome.story { width: 100%; height: calc(100dvh - 20px); grid-template-columns: 1fr; grid-template-rows: minmax(210px, .9fr) auto; gap: 0; padding: 12px; overflow-y: auto; border-radius: 24px; }
+  .via-scene-light { left: -20%; top: -10%; width: 140vw; height: 54vh; }
+  .via-welcome-character { min-height: 230px; align-self: end; }
+  .via-welcome-character .via-avatar { width: 230px !important; height: 230px !important; }
+  .via-dialogue-box { align-self: start; margin: 0; gap: 10px; padding: 20px 18px; border-radius: 8px 22px 22px 22px; text-align: left; }
+  .via-dialogue-box h1 { font-size: 1.9rem; }
+  .via-dialogue-box > p { min-height: 4.4em; font-size: .87rem; line-height: 1.5; }
+  .via-dialogue-controls > button { flex: 1 1 120px; }
   .via-welcome.intro { min-height: calc(100dvh - 20px); grid-template-columns: 1fr; align-content: center; gap: 4px; padding: 24px 20px; text-align: center; }
   .via-welcome-character .via-avatar { width: 210px !important; height: 210px !important; }
   .via-welcome-copy { justify-items: center; gap: 12px; }
@@ -799,12 +855,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .via-welcome-explanation h2 { font-size: 1.35rem; }
   .via-welcome-explanation p { font-size: .76rem; line-height: 1.45; }
   .via-welcome-actions > button { flex: 1 1 100px; }
+  .via-finale-backdrop { align-items: start; padding: 10px; }
+  .via-finale-scene { min-height: calc(100dvh - 20px); grid-template-columns: 1fr; align-content: center; gap: 0; }
+  .via-finale-scene > .via-avatar { width: 230px !important; height: 230px !important; margin-bottom: -18px; }
+  .via-finale-dialogue { gap: 12px; padding: 22px 18px; border-radius: 8px 22px 22px 22px; }
+  .via-finale-dialogue h2 { font-size: 2rem; }
+  .via-finale-dialogue p { min-height: 5em; font-size: .86rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ambient-background::before { left: 70%; top: 22%; }
   .ambient-orb { animation: none; }
-  .via-avatar, .via-eye, .via-mouth, .typewriter-cursor, .tour-card { animation: none !important; }
+  .via-avatar, .via-eye, .via-mouth, .typewriter-cursor, .tour-card, .via-scene-light, .via-welcome-character, .via-dialogue-box { animation: none !important; }
   .via-eye, .via-mouth { opacity: 0 !important; }
   .via-welcome-backdrop.is-shrinking .via-avatar { position: static; width: inherit !important; height: inherit !important; transform: none !important; }
   .tour-highlight { scroll-behavior: auto; }
