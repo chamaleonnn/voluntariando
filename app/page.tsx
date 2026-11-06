@@ -29,7 +29,7 @@ import {
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { analyzeSemanticCompatibility } from "@/lib/ai-service";
 import { calculateCompatibility, recommendOpportunities } from "@/lib/recommendations";
-import { viaTutorialStorageKey, viaWelcomeStorageKey } from "@/lib/via-tutorial";
+import { viaTutorialStorageKey, viaWelcomeStorageKey, type TutorialRole } from "@/lib/via-tutorial";
 import type { AbsenceReport, AppNotification, Application, ExperienceFeedback, Invitation, Opportunity, OpportunityStatus, Organization, PlatformUser, Review, ReviewPhoto, ReviewReport, SessionUser, VolunteerProfile } from "@/lib/types";
 
 type Screen = "landing" | "opportunities" | "volunteer" | "organization" | "admin";
@@ -135,6 +135,8 @@ export default function Home() {
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [viaWelcomeOpen, setViaWelcomeOpen] = useState(false);
   const [viaPromptToken, setViaPromptToken] = useState(0);
+  const [tutorialPreviewRole, setTutorialPreviewRole] = useState<TutorialRole | null>(null);
+  const [tutorialPreviewChoiceOpen, setTutorialPreviewChoiceOpen] = useState(false);
   useEffect(() => {
     const saved = window.localStorage.getItem("red-cercana-theme");
     const preferred = saved === "dark" || saved === "light"
@@ -240,6 +242,11 @@ export default function Home() {
   );
 
   function navigate(next: Screen) {
+    if (tutorialPreviewRole && user?.role === "admin" && (next === tutorialPreviewRole || next === "opportunities" || next === "admin")) {
+      setScreen(next);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     if ((next === "volunteer" || next === "organization" || next === "admin") && !user) return setAuthOpen(true);
     if (next === "volunteer" && user?.role !== "volunteer") return toast.info("Este panel corresponde al perfil de voluntario.");
     if (next === "organization" && user?.role !== "organization") return toast.info("Este panel corresponde a una organización.");
@@ -331,6 +338,11 @@ export default function Home() {
   function finishTutorial(showVia: boolean) {
     if (user && !user.isDemo && user.role !== "admin") window.localStorage.setItem(viaTutorialStorageKey(user.uid, user.role), "done");
     setTutorialOpen(false);
+    if (user?.role === "admin" && tutorialPreviewRole) {
+      setTutorialPreviewRole(null);
+      setScreen("admin");
+      return;
+    }
     if (showVia && user?.role === "volunteer") setViaPromptToken((current) => current + 1);
   }
 
@@ -340,7 +352,20 @@ export default function Home() {
       if (!startTour) window.localStorage.setItem(viaTutorialStorageKey(user.uid, user.role), "skipped");
     }
     setViaWelcomeOpen(false);
+    if (!startTour && user?.role === "admin" && tutorialPreviewRole) {
+      setTutorialPreviewRole(null);
+      setScreen("admin");
+      return;
+    }
     if (startTour) setTutorialOpen(true);
+  }
+
+  function startAdminTutorialPreview(role: TutorialRole) {
+    setTutorialPreviewRole(role);
+    setTutorialPreviewChoiceOpen(false);
+    setTutorialOpen(false);
+    setScreen(role);
+    setViaWelcomeOpen(true);
   }
 
   return (
@@ -348,15 +373,21 @@ export default function Home() {
       <div className="ambient-background" aria-hidden="true"><span className="ambient-orb ambient-orb-one" /><span className="ambient-orb ambient-orb-two" /><span className="ambient-orb ambient-orb-three" /></div>
       {/* Los avisos aparecen debajo del encabezado para no bloquear la navegación. */}
       <Toaster position="top-center" offset={90} richColors />
-      <SiteHeader screen={screen} user={user} notifications={notifications} onReadNotification={readNotification} onTutorial={() => { setTutorialOpen(false); setViaWelcomeOpen(true); }} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSignOut={signOut} />
+      <SiteHeader screen={screen} user={user} notifications={notifications} onReadNotification={readNotification} onTutorial={() => { if (user?.role === "admin") setTutorialPreviewChoiceOpen(true); else { setTutorialOpen(false); setViaWelcomeOpen(true); } }} onTheme={toggleTheme} onNavigate={navigate} onLogin={() => setAuthOpen(true)} onSignOut={signOut} />
       <div className="screen-stage" key={screen}>
         {screen === "landing" && <Landing opportunities={opportunities} reviews={reviews} reviewPhotos={reviewPhotos} user={user} onExplore={() => navigate("opportunities")} onLogin={() => setAuthOpen(true)} onAccount={() => user && navigate(screenForRole(user.role))} />}
         {screen === "opportunities" && <OpportunityFeed opportunities={recommended} user={user} onOpen={setSelectedOpportunity} />}
         {screen === "volunteer" && user?.role === "volunteer" && !user.isDemo && profileLoadedFor !== user.uid && <ProfileLoading />}
+        {screen === "volunteer" && user?.role === "admin" && tutorialPreviewRole === "volunteer" && (
+          <VolunteerPanel user={DEMO_USERS.volunteer} profile={DEMO_VOLUNTEERS[0]} applications={DEMO_APPLICATIONS} invitations={[]} absenceReports={[]} community={DEMO_VOLUNTEERS} organizations={organizations} reviews={DEMO_REVIEWS} opportunities={recommendOpportunities(opportunities, DEMO_VOLUNTEERS[0])} onInvitations={() => undefined} onProfile={() => undefined} onReview={() => undefined} onExplore={() => navigate("opportunities")} />
+        )}
         {screen === "volunteer" && user?.role === "volunteer" && (user.isDemo || profileLoadedFor === user.uid) && (
           <VolunteerPanel user={user} profile={profile} applications={applications} invitations={invitations} absenceReports={absenceReports} community={volunteers} organizations={organizations} reviews={reviews} opportunities={recommended} onInvitations={setInvitations} onProfile={setProfile} onReview={(next) => setReviews((current) => [next, ...current.filter((item) => item.id !== next.id)])} onExplore={() => navigate("opportunities")} />
         )}
         {screen === "organization" && user?.role === "organization" && !user.isDemo && organizationLoadedFor !== user.uid && <ProfileLoading />}
+        {screen === "organization" && user?.role === "admin" && tutorialPreviewRole === "organization" && (
+          <OrganizationPanel user={DEMO_USERS.organization} organization={DEMO_ORGANIZATION} opportunities={DEMO_OPPORTUNITIES} applications={DEMO_APPLICATIONS} invitations={[]} volunteers={DEMO_VOLUNTEERS} onOrganization={() => undefined} onOpportunities={() => undefined} onApplications={() => undefined} onInvitations={() => undefined} onProfile={() => undefined} />
+        )}
         {screen === "organization" && user?.role === "organization" && (user.isDemo || organizationLoadedFor === user.uid) && (
           <OrganizationPanel
             user={user} organization={organization} opportunities={opportunities} applications={applications} invitations={invitations} volunteers={volunteers}
@@ -371,8 +402,9 @@ export default function Home() {
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onUser={loginAs} />
       {user?.role === "volunteer" && !user.isDemo && <VolunteerProfileDialog user={user} profile={profile} open={volunteerOnboarding} onOpenChange={() => undefined} onSaved={setProfile} mandatory />}
       {user?.role === "organization" && !user.isDemo && <OrganizationProfileDialog user={user} organization={organization} open={organizationOnboarding} onOpenChange={() => undefined} onSaved={(next) => { setOrganizationProfile(next); setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next]); }} mandatory />}
-      {user && user.role !== "admin" && <ViaVideoWelcome role={user.role} open={viaWelcomeOpen} onOmit={() => finishViaWelcome(false)} onStartTour={() => finishViaWelcome(true)} />}
-      {user && user.role !== "admin" && <WelcomeTutorial role={user.role} open={tutorialOpen} screen={screen} onNavigate={navigate} onOpenChange={setTutorialOpen} onFinish={finishTutorial} />}
+      {user && (user.role !== "admin" || tutorialPreviewRole) && <ViaVideoWelcome role={tutorialPreviewRole ?? user.role as TutorialRole} open={viaWelcomeOpen} onOmit={() => finishViaWelcome(false)} onStartTour={() => finishViaWelcome(true)} />}
+      {user && (user.role !== "admin" || tutorialPreviewRole) && <WelcomeTutorial role={tutorialPreviewRole ?? user.role as TutorialRole} open={tutorialOpen} screen={screen} onNavigate={navigate} onOpenChange={setTutorialOpen} onFinish={finishTutorial} />}
+      <Dialog open={tutorialPreviewChoiceOpen} onOpenChange={setTutorialPreviewChoiceOpen}><DialogContent><DialogHeader><DialogTitle>Vista previa del tutorial de Vía</DialogTitle><DialogDescription>Elegí qué recorrido querés comprobar. La vista utiliza datos simulados y no modifica tu rol de administrador.</DialogDescription></DialogHeader><div className="tutorial-role-options"><Button onClick={() => startAdminTutorialPreview("volunteer")}><UserRound /> Ver como voluntario</Button><Button variant="outline" onClick={() => startAdminTutorialPreview("organization")}><Building2 /> Ver como organización</Button></div></DialogContent></Dialog>
     </main>
   );
 }
@@ -390,7 +422,7 @@ function SiteHeader({ screen, user, notifications, onReadNotification, onTutoria
   return <><header className="site-header">
     <button className="brand" onClick={() => onNavigate("landing")}><span className="brand-mark"><HeartHandshake /></span><span>VoluntarIAndo<small>encontrá dónde ayudar</small></span></button>
     <nav className="main-nav" aria-label="Navegación principal"><button className={screen === "landing" ? "active" : ""} onClick={() => onNavigate("landing")}>Inicio</button><button className={screen === "opportunities" ? "active" : ""} onClick={() => onNavigate("opportunities")}>Oportunidades</button>{user && <button className={screen === account ? "active" : ""} onClick={() => onNavigate(account)}>Mi espacio</button>}</nav>
-    <div className="header-account"><Button className="theme-toggle" variant="ghost" size="icon" onClick={onTheme} aria-label="Cambiar tema de color"><Moon className="theme-icon-light" /><Sun className="theme-icon-dark" /></Button>{user ? <>{user.role !== "admin" && <button className="tutorial-button" onClick={onTutorial} aria-label="Abrir tutorial">?</button>}<button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`${unread} notificaciones sin leer`}><span aria-hidden="true">🔔</span>{unread > 0 && <b>{unread}</b>}</button><span className="account-chip" title={user.role === "volunteer" ? "Voluntario" : user.role === "organization" ? "Organización" : "Administrador"}><span>{user.displayName.charAt(0)}</span><b>{user.displayName}</b></span><Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Cerrar sesión"><LogOut /></Button></> : <Button className="soft-button" onClick={onLogin}>Ingresar</Button>}</div>
+    <div className="header-account"><Button className="theme-toggle" variant="ghost" size="icon" onClick={onTheme} aria-label="Cambiar tema de color"><Moon className="theme-icon-light" /><Sun className="theme-icon-dark" /></Button>{user ? <><button className="tutorial-button" onClick={onTutorial} aria-label={user.role === "admin" ? "Probar tutorial de Vía" : "Abrir tutorial"}>?</button><button className="notification-button" onClick={() => setNotificationsOpen(true)} aria-label={`${unread} notificaciones sin leer`}><span aria-hidden="true">🔔</span>{unread > 0 && <b>{unread}</b>}</button><span className="account-chip" title={user.role === "volunteer" ? "Voluntario" : user.role === "organization" ? "Organización" : "Administrador"}><span>{user.displayName.charAt(0)}</span><b>{user.displayName}</b></span><Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Cerrar sesión"><LogOut /></Button></> : <Button className="soft-button" onClick={onLogin}>Ingresar</Button>}</div>
   </header><NotificationDialog notifications={notifications} open={notificationsOpen} onOpenChange={setNotificationsOpen} onRead={onReadNotification} /></>;
 }
 
