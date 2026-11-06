@@ -427,6 +427,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .tutorial-progress i { height: 5px; border-radius: 999px; background: var(--muted); }
 .tutorial-progress i.active { background: var(--primary); }
 .tutorial-step { color: var(--primary); font-size: .65rem; font-weight: 850; text-transform: uppercase; }
+.tutorial-role-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .tutorial-illustration { min-height: 150px; display: grid; place-items: center; position: relative; border-radius: 22px; background: radial-gradient(circle, color-mix(in srgb, var(--primary), transparent 78%), transparent 60%), var(--muted); color: var(--primary); }
 .tutorial-illustration > svg:first-child { width: 64px; height: 64px; }
 .tutorial-illustration > svg:last-child { position: absolute; right: 28%; top: 22%; width: 22px; }
@@ -846,6 +847,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .admin-list > div { align-items: flex-start; flex-wrap: wrap; }
   .admin-list > div > button { width: 100%; }
   .tour-card { left: 10px !important; right: 10px; top: auto !important; bottom: 76px !important; width: auto; max-height: min(58dvh, 480px); padding: 14px; border-radius: 20px; }
+  .tutorial-role-options { grid-template-columns: 1fr; }
   .tour-card { padding-top: 42px; overflow-y: auto; }
   .tour-via .via-avatar { left: 9px; top: -39px; width: 76px !important; height: 76px !important; }
   .tour-via > div { margin-left: 68px; }

@@ -388,6 +388,11 @@ export default function Home() {
     setViaWelcomeOpen(true);
   }
 
+  function startAdminMilestonePreview(role: TutorialRole) {
+    setTutorialPreviewChoiceOpen(false);
+    setViaMilestoneRole(role);
+  }
+
   return (
     <main className="site-shell">
       <div className="ambient-background" aria-hidden="true"><span className="ambient-orb ambient-orb-one" /><span className="ambient-orb ambient-orb-two" /><span className="ambient-orb ambient-orb-three" /></div>
@@ -426,7 +431,7 @@ export default function Home() {
       {user && (user.role !== "admin" || tutorialPreviewRole) && <ViaVideoWelcome role={tutorialPreviewRole ?? user.role as TutorialRole} open={viaWelcomeOpen} onOmit={() => finishViaWelcome(false)} onStartTour={() => finishViaWelcome(true)} />}
       {user && (user.role !== "admin" || tutorialPreviewRole) && <WelcomeTutorial role={tutorialPreviewRole ?? user.role as TutorialRole} open={tutorialOpen} screen={screen} onNavigate={navigate} onOpenChange={setTutorialOpen} onFinish={finishTutorial} />}
       <ViaMilestoneCelebration role={viaMilestoneRole ?? "volunteer"} open={Boolean(viaMilestoneRole)} onClose={() => setViaMilestoneRole(null)} />
-      <Dialog open={tutorialPreviewChoiceOpen} onOpenChange={setTutorialPreviewChoiceOpen}><DialogContent><DialogHeader><DialogTitle>Vista previa del tutorial de Vía</DialogTitle><DialogDescription>Elegí qué recorrido querés comprobar. La vista utiliza datos simulados y no modifica tu rol de administrador.</DialogDescription></DialogHeader><div className="tutorial-role-options"><Button onClick={() => startAdminTutorialPreview("volunteer")}><UserRound /> Ver como voluntario</Button><Button variant="outline" onClick={() => startAdminTutorialPreview("organization")}><Building2 /> Ver como organización</Button></div></DialogContent></Dialog>
+      <Dialog open={tutorialPreviewChoiceOpen} onOpenChange={setTutorialPreviewChoiceOpen}><DialogContent><DialogHeader><DialogTitle>Vista previa de Vía</DialogTitle><DialogDescription>Probá sus recorridos y celebraciones con datos simulados. No se modifica tu rol ni información real.</DialogDescription></DialogHeader><div className="tutorial-role-options"><Button onClick={() => startAdminTutorialPreview("volunteer")}><UserRound /> Tutorial de voluntario</Button><Button variant="outline" onClick={() => startAdminTutorialPreview("organization")}><Building2 /> Tutorial de organización</Button><Button variant="outline" onClick={() => startAdminMilestonePreview("volunteer")}><Sparkles /> Celebración del voluntario</Button><Button variant="outline" onClick={() => startAdminMilestonePreview("organization")}><Sparkles /> Celebración de la organización</Button></div></DialogContent></Dialog>
     </main>
   );
 }
