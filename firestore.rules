@@ -77,9 +77,12 @@ service cloud.firestore {
 
     match /organizationMembers/{membershipId} {
       allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId));
-      allow create: if signedIn() && request.resource.data.userId == request.auth.uid
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.organizationId == request.auth.uid
         && request.resource.data.role == "owner"
-        && membershipId == request.resource.data.organizationId + "_" + request.auth.uid;
+        && membershipId == request.resource.data.organizationId + "_" + request.auth.uid
+        && getAfter(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)).data.ownerId == request.auth.uid;
     }
 
     match /opportunities/{opportunityId} {
@@ -94,9 +97,25 @@ service cloud.firestore {
       allow create: if signedIn() && request.resource.data.userId == request.auth.uid
         && applicationId == request.resource.data.opportunityId + "_" + request.auth.uid
         && request.resource.data.status == "pending"
-        && publicOpportunity(get(/databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)).data);
+        && request.resource.data.userEmail == request.auth.token.email
+        && publicOpportunity(get(/databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)).data)
+        && request.resource.data.organizationId == get(/databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)).data.organizationId;
       allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
-      allow update: if isOrganizationAdmin(resource.data.organizationId) || isAdmin();
+      allow update: if isAdmin() || (
+        isOrganizationAdmin(resource.data.organizationId)
+        && (
+          (
+            resource.data.status == "pending"
+            && request.resource.data.status in ["accepted", "rejected"]
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
+          )
+          || (
+            resource.data.status == "accepted"
+            && request.resource.data.status == "accepted"
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["completedAt", "absentAt", "updatedAt"])
+          )
+        )
+      );
     }
 
     match /notifications/{notificationId} {
@@ -158,28 +177,55 @@ service cloud.firestore {
     }
 
     match /matches/{matchId} {
-      allow create: if isOrganizationAdmin(request.resource.data.organizationId)
-        || (owns(request.resource.data.userId)
+      allow create: if (
+        isOrganizationAdmin(request.resource.data.organizationId)
+          && request.resource.data.source == "application"
+          && request.resource.data.status == "confirmed"
+          && matchId == request.resource.data.opportunityId + "_" + request.resource.data.userId
+          && getAfter(/databases/$(database)/documents/applications/$(matchId)).data.status == "accepted"
+          && getAfter(/databases/$(database)/documents/applications/$(matchId)).data.organizationId == request.resource.data.organizationId
+          && getAfter(/databases/$(database)/documents/applications/$(matchId)).data.opportunityId == request.resource.data.opportunityId
+          && getAfter(/databases/$(database)/documents/applications/$(matchId)).data.userId == request.resource.data.userId
+      ) || (
+          owns(request.resource.data.userId)
           && request.resource.data.source == "invitation"
+          && request.resource.data.status == "confirmed"
+          && matchId == "invitation_" + request.resource.data.invitationId
           && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.status == "accepted"
-          && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.userId == request.auth.uid);
+          && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.userId == request.auth.uid
+          && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.organizationId == request.resource.data.organizationId
+          && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.opportunityId == request.resource.data.opportunityId
+      );
       allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
-      allow update: if isOrganizationAdmin(resource.data.organizationId) || isAdmin();
+      allow update: if isAdmin() || (
+        isOrganizationAdmin(resource.data.organizationId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "completedAt", "absentAt"])
+        && (
+          (resource.data.status == "confirmed" && request.resource.data.status in ["completed", "absence_pending_review"])
+          || (request.resource.data.status == resource.data.status)
+        )
+      );
     }
 
     match /participations/{participationId} {
       allow create: if isOrganizationAdmin(request.resource.data.organizationId)
+        && participationId == request.resource.data.matchId
         && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.status in ["completed", "absence_pending_review"]
-        && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.userId == request.resource.data.userId;
+        && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.userId == request.resource.data.userId
+        && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.organizationId == request.resource.data.organizationId
+        && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.opportunityId == request.resource.data.opportunityId;
       allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
       allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "reviewedAt", "reviewedBy"]);
     }
 
     match /absenceReports/{reportId} {
       allow create: if isOrganizationAdmin(request.resource.data.organizationId)
+        && reportId == request.resource.data.matchId
         && request.resource.data.reportedBy == request.auth.uid
         && request.resource.data.status == "pending_review"
-        && existsAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId));
+        && getAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId)).data.organizationId == request.resource.data.organizationId
+        && getAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId)).data.userId == request.resource.data.volunteerId
+        && getAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId)).data.opportunityId == request.resource.data.opportunityId;
       allow read: if signedIn() && (resource.data.volunteerId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "reviewedAt", "reviewedBy", "reviewReason"])
@@ -188,7 +234,11 @@ service cloud.firestore {
 
     match /feedback/{feedbackId} {
       allow create: if isOrganizationAdmin(request.resource.data.organizationId)
-        && existsAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId))
+        && feedbackId == request.resource.data.matchId
+        && getAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId)).data.status == "completed"
+        && getAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId)).data.organizationId == request.resource.data.organizationId
+        && getAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId)).data.userId == request.resource.data.volunteerId
+        && getAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId)).data.opportunityId == request.resource.data.opportunityId
         && request.resource.data.assessment in ["positive", "needs_improvement"]
         && request.resource.data.details is string
         && request.resource.data.details.size() <= 600

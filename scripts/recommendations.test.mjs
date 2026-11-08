@@ -53,9 +53,43 @@ test("una experiencia relacionada mejora una recomendación futura", () => {
     experiences: [{ opportunityId: "previa", opportunityTitle: "Huerta previa", organization: "Org", tasks: ["Preparar huerta"], skills: ["Naturaleza y ambiente"], completedAt: "2026-10-01" }],
   });
   const after = recommendOpportunities([opportunity], afterProfile)[0];
+  assert.deepEqual(before.breakdown, { skills: 0, interests: 100, availability: 100, location: 100, experience: 0 });
   assert.equal(before.score, 55);
+  assert.deepEqual(after.compatibilityBreakdown, { skills: 65, interests: 100, availability: 100, location: 100, experience: 100 });
   assert.equal(after.compatibility, 90);
   assert.ok((after.compatibility ?? 0) > before.score);
+});
+
+test("normaliza tildes y reconoce términos relacionados", () => {
+  const result = calculateCompatibility(profile({
+    interests: ["Educacion"],
+    declaredSkills: ["Enseñanza"],
+  }), { ...opportunity, category: "Educación", requiredSkills: ["Apoyo escolar"] });
+  assert.equal(result.breakdown.skills, 100);
+  assert.equal(result.breakdown.interests, 100);
+});
+
+test("una oportunidad sin habilidades obligatorias no penaliza el perfil", () => {
+  const result = calculateCompatibility(profile({ declaredSkills: [], verifiedSkills: {} }), {
+    ...opportunity,
+    requiredSkills: [],
+  });
+  assert.equal(result.breakdown.skills, 100);
+});
+
+test("distingue modalidad virtual, híbrida y presencial", () => {
+  const distant = profile({ location: "Mendoza" });
+  assert.equal(calculateCompatibility(distant, { ...opportunity, modality: "Virtual" }).breakdown.location, 100);
+  assert.equal(calculateCompatibility(distant, { ...opportunity, modality: "Híbrida" }).breakdown.location, 60);
+  assert.equal(calculateCompatibility(distant, { ...opportunity, modality: "Presencial" }).breakdown.location, 0);
+});
+
+test("ordena recomendaciones de mayor a menor y conserva valores entre 0 y 100", () => {
+  const exact = { ...opportunity, id: "exacta" };
+  const unrelated = { ...opportunity, id: "sin-coincidencias", category: "Tecnología", requiredSkills: ["Informática"], availability: ["Lunes"], province: "Mendoza", neighborhood: "Mendoza" };
+  const result = recommendOpportunities([unrelated, exact], profile());
+  assert.equal(result[0].id, "exacta");
+  assert.ok(result.every((item) => (item.compatibility ?? -1) >= 0 && (item.compatibility ?? 101) <= 100));
 });
 
 test("datos sin relación producen cero en cada criterio", () => {

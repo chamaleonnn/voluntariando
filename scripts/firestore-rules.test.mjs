@@ -15,6 +15,7 @@ import {
   updateDoc,
   writeBatch,
 } from "firebase/firestore";
+import { calculateCompatibility } from "../lib/recommendations.ts";
 
 const projectId = "voluntariando-rules-test";
 let testEnvironment;
@@ -45,6 +46,9 @@ before(async () => {
         email: "otro@example.com",
         role: "volunteer",
         status: "active",
+      }),
+      setDoc(doc(database, "users/progress-vol"), {
+        email: "progreso@example.com", role: "volunteer", status: "active",
       }),
       setDoc(doc(database, "users/admin"), {
         email: "admin@example.com",
@@ -89,6 +93,16 @@ before(async () => {
         status: "published",
         visibility: "public",
       }),
+      setDoc(doc(database, "opportunities/integration-huerta"), {
+        organizationId: "org", title: "Huerta", category: "Ambiente",
+        requiredSkills: ["Naturaleza y ambiente"], availability: ["Sábado por la mañana"],
+        province: "Córdoba", neighborhood: "Córdoba capital", modality: "Presencial",
+        status: "published", visibility: "public",
+      }),
+      setDoc(doc(database, "applications/accepted-app"), {
+        opportunityId: "opp", organizationId: "org", userId: "vol",
+        userEmail: "voluntario@example.com", status: "accepted",
+      }),
       setDoc(doc(database, "volunteerProfiles/vol"), {
         name: "Persona voluntaria",
         verifiedSkills: {},
@@ -101,11 +115,20 @@ before(async () => {
         name: "Perfil privado", verifiedSkills: {}, experiences: [], completedExperiences: 0,
         visibleToOrganizations: false, visibleToVolunteers: false,
       }),
+      setDoc(doc(database, "volunteerProfiles/progress-vol"), {
+        name: "Persona en progreso", location: "Córdoba capital", interests: ["Ambiente"],
+        declaredSkills: ["Cocina"], verifiedSkills: {}, availability: ["Sábado por la mañana"],
+        experiences: [], completedExperiences: 0,
+        visibleToOrganizations: true, visibleToVolunteers: true,
+      }),
       setDoc(doc(database, "invitations/inv"), {
         organizationId: "org",
         opportunityId: "opp",
         userId: "vol",
         status: "accepted",
+      }),
+      setDoc(doc(database, "invitations/pending-inv"), {
+        organizationId: "org", opportunityId: "opp", userId: "vol", status: "pending",
       }),
       setDoc(doc(database, "matches/invitation_inv"), {
         organizationId: "org",
@@ -117,6 +140,10 @@ before(async () => {
       }),
       setDoc(doc(database, "matches/absence_match"), {
         organizationId: "org", opportunityId: "opp", userId: "vol", status: "confirmed",
+      }),
+      setDoc(doc(database, "matches/integration-huerta_progress-vol"), {
+        organizationId: "org", opportunityId: "integration-huerta", userId: "progress-vol",
+        source: "application", status: "confirmed",
       }),
       setDoc(doc(database, "feedback/negative-review"), {
         matchId: "previous-match",
@@ -187,6 +214,50 @@ test("la organización puede cerrar una experiencia invitada en una sola operaci
   assert.equal(profile.data().completedExperiences, 1);
 });
 
+test("una experiencia persistida actualiza la compatibilidad de 55 a 90", async () => {
+  const opportunity = {
+    id: "integration-huerta", title: "Huerta", organization: "Comunidad", organizationId: "org",
+    description: "", tasks: ["Preparar la huerta"], requirements: [], date: "2026-11-10",
+    dateLabel: "10 nov", time: "10:00", neighborhood: "Córdoba capital", addressHint: "",
+    latitude: 0, longitude: 0, distanceKm: 0, capacity: 10, availableSpots: 5,
+    category: "Ambiente", province: "Córdoba", modality: "Presencial",
+    availability: ["Sábado por la mañana"], requiredSkills: ["Naturaleza y ambiente"],
+    imageUrl: "", visibility: "public", status: "published",
+  };
+  const organization = testEnvironment.authenticatedContext("org", { email: "organizacion@example.com" });
+  const database = organization.firestore();
+  const profileRef = doc(database, "volunteerProfiles/progress-vol");
+  const initialProfile = { id: "progress-vol", ...(await getDoc(profileRef)).data() };
+  assert.equal(calculateCompatibility(initialProfile, opportunity).score, 55);
+
+  const experience = {
+    opportunityId: "integration-huerta", opportunityTitle: "Huerta previa", organization: "Org",
+    tasks: ["Preparar huerta"], skills: ["Naturaleza y ambiente"], completedAt: "2026-11-07T12:00:00.000Z",
+  };
+  const batch = writeBatch(database);
+  batch.update(doc(database, "matches/integration-huerta_progress-vol"), { status: "completed", completedAt: serverTimestamp() });
+  batch.set(doc(database, "participations/integration-huerta_progress-vol"), {
+    matchId: "integration-huerta_progress-vol", opportunityId: "integration-huerta",
+    organizationId: "org", userId: "progress-vol", status: "completed", completedAt: serverTimestamp(),
+  });
+  batch.set(doc(database, "feedback/integration-huerta_progress-vol"), {
+    matchId: "integration-huerta_progress-vol", opportunityId: "integration-huerta",
+    organizationId: "org", volunteerId: "progress-vol", assessment: "positive",
+    details: "Participación satisfactoria.", status: "recorded",
+  });
+  batch.update(profileRef, {
+    "verifiedSkills.Naturaleza y ambiente": increment(1), experiences: [experience],
+    completedExperiences: increment(1), lastExperienceMatchId: "integration-huerta_progress-vol",
+    updatedAt: serverTimestamp(),
+  });
+  await assertSucceeds(batch.commit());
+
+  const updatedProfile = { id: "progress-vol", ...(await getDoc(profileRef)).data() };
+  const result = calculateCompatibility(updatedProfile, opportunity);
+  assert.deepEqual(result.breakdown, { skills: 65, interests: 100, availability: 100, location: 100, experience: 100 });
+  assert.equal(result.score, 90);
+});
+
 test("un usuario ajeno no puede marcar como completada una invitación", async () => {
   const outsider = testEnvironment.authenticatedContext("other", {
     email: "otro@example.com",
@@ -238,6 +309,79 @@ test("una organización pendiente no puede publicar hasta ser validada", async (
     status: "published",
     visibility: "public",
   }));
+});
+
+test("un usuario no puede apropiarse de una organización ajena", async () => {
+  const outsider = testEnvironment.authenticatedContext("other", { email: "otro@example.com" });
+  await assertFails(setDoc(doc(outsider.firestore(), "organizationMembers/org_other"), {
+    organizationId: "org", userId: "other", role: "owner", createdAt: serverTimestamp(),
+  }));
+});
+
+test("una postulación no puede falsificar organización ni correo", async () => {
+  const volunteer = testEnvironment.authenticatedContext("vol", { email: "voluntario@example.com", name: "Persona voluntaria" });
+  await assertFails(setDoc(doc(volunteer.firestore(), "applications/opp_vol"), {
+    opportunityId: "opp", opportunityTitle: "Apoyo escolar", organizationId: "other",
+    userId: "vol", userName: "Persona voluntaria", userEmail: "falso@example.com",
+    message: "Me interesa", status: "pending", createdAt: serverTimestamp(),
+  }));
+});
+
+test("una postulación válida queda asociada a la oportunidad y al usuario autenticado", async () => {
+  const volunteer = testEnvironment.authenticatedContext("vol", { email: "voluntario@example.com", name: "Persona voluntaria" });
+  await assertSucceeds(setDoc(doc(volunteer.firestore(), "applications/opp_vol"), {
+    opportunityId: "opp", opportunityTitle: "Apoyo escolar", organizationId: "org",
+    userId: "vol", userName: "Persona voluntaria", userEmail: "voluntario@example.com",
+    message: "Me interesa", status: "pending", createdAt: serverTimestamp(),
+  }));
+});
+
+test("la aceptación válida crea un match consistente y bloquea regresiones de estado", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "applications/opp_vol"), {
+      opportunityId: "opp", opportunityTitle: "Apoyo escolar", organizationId: "org",
+      userId: "vol", userName: "Persona voluntaria", userEmail: "voluntario@example.com",
+      status: "pending",
+    });
+  });
+  const organization = testEnvironment.authenticatedContext("org", { email: "organizacion@example.com" });
+  const database = organization.firestore();
+  const batch = writeBatch(database);
+  batch.update(doc(database, "applications/opp_vol"), { status: "accepted", updatedAt: serverTimestamp() });
+  batch.set(doc(database, "matches/opp_vol"), {
+    opportunityId: "opp", opportunityTitle: "Apoyo escolar", organizationId: "org",
+    userId: "vol", source: "application", status: "confirmed", createdAt: serverTimestamp(),
+  });
+  await assertSucceeds(batch.commit());
+  await assertFails(updateDoc(doc(database, "applications/opp_vol"), { status: "pending", updatedAt: serverTimestamp() }));
+});
+
+test("una organización no puede crear un match sin postulación aceptada", async () => {
+  const organization = testEnvironment.authenticatedContext("org", { email: "organizacion@example.com" });
+  await assertFails(setDoc(doc(organization.firestore(), "matches/opp_other"), {
+    opportunityId: "opp", opportunityTitle: "Apoyo escolar", organizationId: "org",
+    userId: "other", source: "application", status: "confirmed", createdAt: serverTimestamp(),
+  }));
+});
+
+test("aceptar una invitación crea una única vinculación consistente", async () => {
+  const volunteer = testEnvironment.authenticatedContext("vol", { email: "voluntario@example.com" });
+  const database = volunteer.firestore();
+  const batch = writeBatch(database);
+  batch.update(doc(database, "invitations/pending-inv"), { status: "accepted", respondedAt: serverTimestamp() });
+  batch.set(doc(database, "matches/invitation_pending-inv"), {
+    invitationId: "pending-inv", opportunityId: "opp", organizationId: "org",
+    userId: "vol", source: "invitation", status: "confirmed", createdAt: serverTimestamp(),
+  });
+  await assertSucceeds(batch.commit());
+
+  const duplicate = writeBatch(database);
+  duplicate.update(doc(database, "invitations/pending-inv"), { status: "accepted", respondedAt: serverTimestamp() });
+  duplicate.set(doc(database, "matches/invitation_pending-inv"), {
+    invitationId: "pending-inv", opportunityId: "opp", organizationId: "org",
+    userId: "vol", source: "invitation", status: "confirmed", createdAt: serverTimestamp(),
+  });
+  await assertFails(duplicate.commit());
 });
 
 test("administración puede validar una organización pendiente", async () => {

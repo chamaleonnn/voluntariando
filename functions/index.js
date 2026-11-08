@@ -27,50 +27,56 @@ export const analyzeSemanticCompatibility = onCall({
     requiredSkills: opportunity.requiredSkills ?? [], availability: opportunity.availability ?? [],
     province: opportunity.province ?? "", neighborhood: opportunity.neighborhood ?? "", modality: opportunity.modality ?? "",
   };
-  const response = await client.responses.create({
-    model: "gpt-5-mini",
-    max_output_tokens: 350,
-    text: {
-      format: {
-        type: "json_schema",
-        name: "semantic_compatibility",
-        strict: true,
-        schema: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            relationships: {
-              type: "array",
-              maxItems: 5,
-              items: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  profileEvidence: { type: "string" },
-                  opportunityEvidence: { type: "string" },
-                  relation: { type: "string" },
+  try {
+    const response = await client.responses.create({
+      model: "gpt-5-mini",
+      max_output_tokens: 350,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "semantic_compatibility",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              relationships: {
+                type: "array",
+                maxItems: 5,
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    profileEvidence: { type: "string" },
+                    opportunityEvidence: { type: "string" },
+                    relation: { type: "string" },
+                  },
+                  required: ["profileEvidence", "opportunityEvidence", "relation"],
                 },
-                required: ["profileEvidence", "opportunityEvidence", "relation"],
               },
             },
+            required: ["relationships"],
           },
-          required: ["relationships"],
         },
       },
-    },
-    input: [
-      {
-        role: "system",
-        content: "Identificá relaciones semánticas respaldadas por los datos recibidos. profileEvidence y opportunityEvidence deben copiar literalmente valores presentes en la entrada. No inventes datos y no calcules porcentajes. relation debe ser una frase breve en español argentino.",
-      },
-      {
-        role: "user",
-        content: JSON.stringify({ volunteer, opportunity: target }),
-      },
-    ],
-  });
-  const parsed = JSON.parse(response.output_text);
-  const relationships = validateSemanticRelationships(parsed, volunteer, target);
-  const explanation = explainSemanticRelationships(relationships);
-  return { relationships, explanation };
+      input: [
+        {
+          role: "system",
+          content: "Identificá relaciones semánticas respaldadas por los datos recibidos. profileEvidence y opportunityEvidence deben copiar literalmente valores presentes en la entrada. No inventes datos y no calcules porcentajes. relation debe ser una frase breve en español argentino.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({ volunteer, opportunity: target }),
+        },
+      ],
+    });
+    const parsed = JSON.parse(response.output_text);
+    const relationships = validateSemanticRelationships(parsed, volunteer, target);
+    const explanation = explainSemanticRelationships(relationships);
+    return { relationships, explanation };
+  } catch (error) {
+    // La interfaz mantiene la explicación local; la Function no expone detalles internos ni credenciales.
+    console.error("Semantic analysis unavailable", { status: error?.status, code: error?.code });
+    throw new HttpsError("unavailable", "El análisis adicional no está disponible temporalmente.");
+  }
 });
