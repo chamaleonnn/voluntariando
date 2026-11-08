@@ -8,9 +8,15 @@ service cloud.firestore {
       return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : null;
     }
-    function isAdmin() { return userRole() == "admin"; }
-    function isOrganizationAdmin(organizationId) {
+    function activeUser() {
       return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
+    }
+    function hasRole(role) { return activeUser() && userRole() == role; }
+    function isAdmin() { return hasRole("admin"); }
+    function isOrganizationAdmin(organizationId) {
+      return hasRole("organization")
         && exists(/databases/$(database)/documents/organizationMembers/$(organizationId + "_" + request.auth.uid))
         && get(/databases/$(database)/documents/organizationMembers/$(organizationId + "_" + request.auth.uid)).data.role == "owner";
     }
@@ -19,6 +25,22 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/organizations/$(organizationId)).data.status == "verified";
     }
     function publicOpportunity(data) { return data.status == "published" && data.visibility == "public"; }
+    function verifiedSkillsAdvance(previous, next, selected) {
+      return selected.hasOnly([
+          "Arte y creatividad", "Educación y acompañamiento", "Naturaleza y ambiente",
+          "Cocina y alimentación", "Construcción y reparación", "Organización y logística",
+          "Tecnología y comunicación", "Deporte, juego y recreación"
+        ])
+        && next.diff(previous).affectedKeys().hasOnly(selected)
+        && next.get("Arte y creatividad", 0) == previous.get("Arte y creatividad", 0) + (selected.hasAny(["Arte y creatividad"]) ? 1 : 0)
+        && next.get("Educación y acompañamiento", 0) == previous.get("Educación y acompañamiento", 0) + (selected.hasAny(["Educación y acompañamiento"]) ? 1 : 0)
+        && next.get("Naturaleza y ambiente", 0) == previous.get("Naturaleza y ambiente", 0) + (selected.hasAny(["Naturaleza y ambiente"]) ? 1 : 0)
+        && next.get("Cocina y alimentación", 0) == previous.get("Cocina y alimentación", 0) + (selected.hasAny(["Cocina y alimentación"]) ? 1 : 0)
+        && next.get("Construcción y reparación", 0) == previous.get("Construcción y reparación", 0) + (selected.hasAny(["Construcción y reparación"]) ? 1 : 0)
+        && next.get("Organización y logística", 0) == previous.get("Organización y logística", 0) + (selected.hasAny(["Organización y logística"]) ? 1 : 0)
+        && next.get("Tecnología y comunicación", 0) == previous.get("Tecnología y comunicación", 0) + (selected.hasAny(["Tecnología y comunicación"]) ? 1 : 0)
+        && next.get("Deporte, juego y recreación", 0) == previous.get("Deporte, juego y recreación", 0) + (selected.hasAny(["Deporte, juego y recreación"]) ? 1 : 0);
+    }
 
     match /users/{userId} {
       allow create: if owns(userId) && request.resource.data.email == request.auth.token.email
@@ -49,12 +71,22 @@ service cloud.firestore {
     }
 
     match /volunteerProfiles/{userId} {
-      allow create: if owns(userId);
+      allow create: if owns(userId)
+        && getAfter(/databases/$(database)/documents/users/$(userId)).data.role == "volunteer"
+        && request.resource.data.completedExperiences == 0
+        && request.resource.data.verifiedHours == 0
+        && request.resource.data.verifiedSkills == {}
+        && request.resource.data.experiences == []
+        && request.resource.data.keys().hasOnly([
+          "name", "initials", "location", "bio", "completedExperiences", "verifiedHours",
+          "interests", "declaredSkills", "verifiedSkills", "availability", "socialLinks",
+          "experiences", "visibleToOrganizations", "visibleToVolunteers", "updatedAt"
+        ]);
       allow read: if owns(userId) || isAdmin()
-        || (userRole() == "organization" && resource.data.visibleToOrganizations == true)
-        || (userRole() == "volunteer" && resource.data.visibleToVolunteers == true);
+        || (hasRole("organization") && resource.data.visibleToOrganizations == true)
+        || (hasRole("volunteer") && resource.data.visibleToVolunteers == true);
       allow update: if (
-        owns(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        owns(userId) && activeUser() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "name", "initials", "location", "bio", "interests", "declaredSkills", "availability", "socialLinks", "visibleToOrganizations", "visibleToVolunteers", "updatedAt"
         ])
       ) || (
@@ -64,13 +96,31 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.lastExperienceMatchId)).data.userId == userId
         && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.lastExperienceMatchId)).data.status == "completed"
         && isOrganizationAdmin(getAfter(/databases/$(database)/documents/matches/$(request.resource.data.lastExperienceMatchId)).data.organizationId)
+        && request.resource.data.lastExperienceMatchId != resource.data.get("lastExperienceMatchId", "")
+        && request.resource.data.completedExperiences == resource.data.completedExperiences + 1
+        && request.resource.data.experiences.size() == resource.data.experiences.size() + 1
+        && getAfter(/databases/$(database)/documents/feedback/$(request.resource.data.lastExperienceMatchId)).data.matchId == request.resource.data.lastExperienceMatchId
+        && getAfter(/databases/$(database)/documents/feedback/$(request.resource.data.lastExperienceMatchId)).data.volunteerId == userId
+        && getAfter(/databases/$(database)/documents/feedback/$(request.resource.data.lastExperienceMatchId)).data.organizationId == getAfter(/databases/$(database)/documents/matches/$(request.resource.data.lastExperienceMatchId)).data.organizationId
+        && getAfter(/databases/$(database)/documents/feedback/$(request.resource.data.lastExperienceMatchId)).data.skills.size() <= 3
+        && verifiedSkillsAdvance(
+          resource.data.verifiedSkills,
+          request.resource.data.verifiedSkills,
+          getAfter(/databases/$(database)/documents/feedback/$(request.resource.data.lastExperienceMatchId)).data.skills
+        )
       );
     }
 
     match /organizations/{organizationId} {
       allow read: if resource.data.status == "verified" || owns(resource.data.ownerId) || isOrganizationAdmin(organizationId) || isAdmin();
-      allow create: if owns(organizationId) && request.resource.data.ownerId == request.auth.uid && request.resource.data.status == "pending";
-      allow update: if isAdmin() || (owns(resource.data.ownerId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+      allow create: if owns(organizationId)
+        && getAfter(/databases/$(database)/documents/users/$(organizationId)).data.role == "organization"
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.status == "pending";
+      allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        "name", "province", "location", "contact", "description", "status", "moderationReason",
+        "moderatedBy", "moderatedAt", "updatedAt"
+      ])) || (activeUser() && owns(resource.data.ownerId) && request.resource.data.ownerId == resource.data.ownerId && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         "name", "province", "location", "contact", "description", "updatedAt"
       ]));
     }
@@ -90,11 +140,12 @@ service cloud.firestore {
       allow create: if (isOrganizationAdmin(request.resource.data.organizationId)
         && isVerifiedOrganization(request.resource.data.organizationId)) || isAdmin();
       allow update: if (isOrganizationAdmin(resource.data.organizationId)
-        && isVerifiedOrganization(resource.data.organizationId)) || isAdmin();
+        && isVerifiedOrganization(resource.data.organizationId)
+        && request.resource.data.organizationId == resource.data.organizationId) || isAdmin();
     }
 
     match /applications/{applicationId} {
-      allow create: if signedIn() && request.resource.data.userId == request.auth.uid
+      allow create: if hasRole("volunteer") && request.resource.data.userId == request.auth.uid
         && applicationId == request.resource.data.opportunityId + "_" + request.auth.uid
         && request.resource.data.status == "pending"
         && request.resource.data.userEmail == request.auth.token.email
@@ -125,6 +176,7 @@ service cloud.firestore {
         && request.resource.data.read == false
         && (
           (request.resource.data.type == "application_received"
+            && hasRole("volunteer")
             && getAfter(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.userId == request.auth.uid
             && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/applications/$(request.resource.data.applicationId)).data.organizationId)
           ||
@@ -137,6 +189,7 @@ service cloud.firestore {
             && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.userId)
           ||
           (request.resource.data.type in ["proposal_accepted", "proposal_rejected"]
+            && hasRole("volunteer")
             && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.userId == request.auth.uid
             && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.organizationId)
           ||
@@ -161,10 +214,12 @@ service cloud.firestore {
     match /invitations/{invitationId} {
       allow create: if isOrganizationAdmin(request.resource.data.organizationId)
         && request.resource.data.status == "pending"
+        && isVerifiedOrganization(request.resource.data.organizationId)
+        && publicOpportunity(get(/databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)).data)
         && get(/databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)).data.organizationId == request.resource.data.organizationId;
       allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
       allow update: if (
-        owns(resource.data.userId)
+        hasRole("volunteer") && owns(resource.data.userId)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "respondedAt"])
           && resource.data.status == "pending"
           && request.resource.data.status in ["accepted", "rejected"]
@@ -187,7 +242,7 @@ service cloud.firestore {
           && getAfter(/databases/$(database)/documents/applications/$(matchId)).data.opportunityId == request.resource.data.opportunityId
           && getAfter(/databases/$(database)/documents/applications/$(matchId)).data.userId == request.resource.data.userId
       ) || (
-          owns(request.resource.data.userId)
+          hasRole("volunteer") && owns(request.resource.data.userId)
           && request.resource.data.source == "invitation"
           && request.resource.data.status == "confirmed"
           && matchId == "invitation_" + request.resource.data.invitationId
@@ -240,6 +295,16 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId)).data.userId == request.resource.data.volunteerId
         && getAfter(/databases/$(database)/documents/participations/$(request.resource.data.matchId)).data.opportunityId == request.resource.data.opportunityId
         && request.resource.data.assessment in ["positive", "needs_improvement"]
+        && request.resource.data.submittedByEmail == request.auth.token.email
+        && request.resource.data.tasks is list
+        && request.resource.data.tasks.size() > 0
+        && request.resource.data.skills is list
+        && request.resource.data.skills.size() <= 3
+        && request.resource.data.skills.hasOnly([
+          "Arte y creatividad", "Educación y acompañamiento", "Naturaleza y ambiente",
+          "Cocina y alimentación", "Construcción y reparación", "Organización y logística",
+          "Tecnología y comunicación", "Deporte, juego y recreación"
+        ])
         && request.resource.data.details is string
         && request.resource.data.details.size() <= 600
         && (
@@ -254,7 +319,7 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if resource.data.status == "published" || isAdmin();
-      allow create: if signedIn()
+      allow create: if hasRole("volunteer")
         && reviewId == request.resource.data.applicationId
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.rating >= 1
@@ -275,7 +340,7 @@ service cloud.firestore {
     }
 
     match /reviewReports/{reportId} {
-      allow create: if signedIn()
+      allow create: if activeUser()
         && reportId == request.resource.data.reviewId + "_" + request.auth.uid
         && request.resource.data.reporterId == request.auth.uid
         && request.resource.data.reason is string
@@ -292,7 +357,7 @@ service cloud.firestore {
 
     match /reviewPhotos/{reviewId} {
       allow read: if resource.data.status == "approved" || owns(resource.data.userId) || isAdmin();
-      allow create: if signedIn()
+      allow create: if hasRole("volunteer")
         && reviewId == request.resource.data.reviewId
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status == "pending"
@@ -307,7 +372,10 @@ service cloud.firestore {
     }
 
     match /adminActions/{actionId} {
-      allow create, read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.actorId == request.auth.uid
+        && (!request.resource.data.keys().hasAny(["actorEmail"]) || request.resource.data.actorEmail == request.auth.token.email);
+      allow read: if isAdmin();
       allow update, delete: if false;
     }
 

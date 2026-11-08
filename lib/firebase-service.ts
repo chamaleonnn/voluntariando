@@ -762,6 +762,8 @@ export async function recordCompletedExperience(
   values: { tasks: string[]; skills: string[]; organizationName: string; submittedByEmail: string; assessment: "positive" | "needs_improvement"; details: string },
 ) {
   const firestore = requireDb();
+  if (values.skills.length > 3) throw new Error("Solo se pueden verificar hasta tres habilidades por experiencia.");
+  if (new Set(values.skills).size !== values.skills.length) throw new Error("No se puede registrar dos veces la misma habilidad.");
   const matchId = application.matchId ?? `${application.opportunityId}_${application.userId}`;
   await runTransaction(firestore, async (transaction) => {
     const participationRef = doc(firestore, "participations", matchId);
