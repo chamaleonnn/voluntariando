@@ -553,6 +553,44 @@ test("una organización verificada publica y edita sin poder transferir la oport
   await assertFails(updateDoc(opportunity, { organizationId: "pending-org", updatedAt: serverTimestamp() }));
 });
 
+test("los formularios legítimos conservan campos protegidos al editar perfiles", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const database = context.firestore();
+    await setDoc(doc(database, "users/edit-vol"), { email: "editar-vol@example.com", role: "volunteer", status: "active" });
+    await setDoc(doc(database, "volunteerProfiles/edit-vol"), {
+      name: "Nombre inicial", initials: "NI", location: "Córdoba", bio: "",
+      completedExperiences: 0, verifiedHours: 0, interests: ["Ambiente"],
+      declaredSkills: ["Organización"], verifiedSkills: {}, availability: ["Sábado"],
+      socialLinks: {}, experiences: [], visibleToOrganizations: true, visibleToVolunteers: true,
+    });
+    await setDoc(doc(database, "users/edit-org"), { email: "editar-org@example.com", role: "organization", status: "active" });
+    await setDoc(doc(database, "organizations/edit-org"), {
+      ownerId: "edit-org", name: "Organización inicial", email: "editar-org@example.com",
+      province: "Córdoba", location: "Córdoba", contact: "editar-org@example.com",
+      description: "Descripción inicial", status: "pending",
+    });
+    await setDoc(doc(database, "organizationMembers/edit-org_edit-org"), {
+      organizationId: "edit-org", userId: "edit-org", role: "owner",
+    });
+  });
+
+  const volunteer = testEnvironment.authenticatedContext("edit-vol", { email: "editar-vol@example.com" });
+  await assertSucceeds(setDoc(doc(volunteer.firestore(), "volunteerProfiles/edit-vol"), {
+    name: "Nombre actualizado", initials: "NA", location: "Córdoba capital", bio: "Perfil completo",
+    completedExperiences: 0, verifiedHours: 0, interests: ["Ambiente", "Educación"],
+    declaredSkills: ["Organización"], verifiedSkills: {}, availability: ["Sábado"],
+    socialLinks: {}, experiences: [], visibleToOrganizations: true, visibleToVolunteers: true,
+    updatedAt: serverTimestamp(),
+  }, { merge: true }));
+
+  const organization = testEnvironment.authenticatedContext("edit-org", { email: "editar-org@example.com" });
+  await assertSucceeds(setDoc(doc(organization.firestore(), "organizations/edit-org"), {
+    ownerId: "edit-org", name: "Organización actualizada", email: "editar-org@example.com",
+    province: "Córdoba", location: "Córdoba capital", contact: "contacto@example.com",
+    description: "Descripción actualizada", status: "pending", updatedAt: serverTimestamp(),
+  }, { merge: true }));
+});
+
 test("solo un voluntario activo puede postularse", async () => {
   const organization = testEnvironment.authenticatedContext("org", { email: "organizacion@example.com" });
   await assertFails(setDoc(doc(organization.firestore(), "applications/opp_org"), {
@@ -618,6 +656,46 @@ test("un usuario común no accede a operaciones administrativas", async () => {
     actorId: "other", actorEmail: "otro@example.com", action: "verify_organization",
     targetType: "organization", targetId: "pending-org", reason: "Sin permiso", createdAt: serverTimestamp(),
   }));
+});
+
+test("denuncias, fotos y moderación de reseñas quedan reservadas a administración", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const database = context.firestore();
+    await setDoc(doc(database, "reviews/moderation-review"), {
+      applicationId: "accepted-app", opportunityId: "opp", organizationId: "org",
+      userId: "vol", authorName: "Voluntario anónimo", rating: 4,
+      comment: "Experiencia registrada para moderación", status: "published",
+    });
+    await setDoc(doc(database, "reviewReports/moderation-review_other"), {
+      reviewId: "moderation-review", reporterId: "other", reason: "Revisión solicitada",
+      status: "pending", createdAt: serverTimestamp(),
+    });
+    await setDoc(doc(database, "reviewPhotos/moderation-review"), {
+      reviewId: "moderation-review", userId: "vol", imageDataUrl: "data:image/jpeg;base64,AA==",
+      status: "pending", createdAt: serverTimestamp(),
+    });
+  });
+
+  const outsider = testEnvironment.authenticatedContext("other", { email: "otro@example.com" });
+  await assertFails(getDoc(doc(outsider.firestore(), "reviewReports/moderation-review_other")));
+  await assertFails(getDoc(doc(outsider.firestore(), "reviewPhotos/moderation-review")));
+  await assertFails(updateDoc(doc(outsider.firestore(), "reviews/moderation-review"), { status: "hidden" }));
+
+  const admin = testEnvironment.authenticatedContext("admin", { email: "admin@example.com" });
+  const adminDb = admin.firestore();
+  await assertSucceeds(getDoc(doc(adminDb, "reviewReports/moderation-review_other")));
+  await assertSucceeds(getDoc(doc(adminDb, "reviewPhotos/moderation-review")));
+  const moderation = writeBatch(adminDb);
+  moderation.update(doc(adminDb, "reviews/moderation-review"), {
+    status: "hidden", moderationReason: "Revisada", moderatedBy: "admin", moderatedAt: serverTimestamp(),
+  });
+  moderation.update(doc(adminDb, "reviewReports/moderation-review_other"), {
+    status: "resolved", resolvedBy: "admin", resolvedAt: serverTimestamp(),
+  });
+  moderation.update(doc(adminDb, "reviewPhotos/moderation-review"), {
+    status: "rejected", moderationReason: "No corresponde", moderatedBy: "admin", moderatedAt: serverTimestamp(),
+  });
+  await assertSucceeds(moderation.commit());
 });
 
 test("recorrido integrado: postulación, vínculo, experiencia y recomendación 55 a 90", async () => {
