@@ -479,8 +479,9 @@ export async function recordAbsence(application: Application, actor: SessionUser
   const matchId = application.matchId ?? `${application.opportunityId}_${application.userId}`;
   await runTransaction(firestore, async (transaction) => {
     const participationRef = doc(firestore, "participations", matchId);
-    if ((await transaction.get(participationRef)).exists()) throw new Error("Esta participación ya tiene un resultado registrado.");
     const reportRef = doc(firestore, "absenceReports", matchId);
+    // No se lee antes el documento vacío: Firestore protege esa lectura.
+    // Si ya existe, las reglas impiden que la organización lo sobrescriba.
     transaction.set(doc(firestore, "matches", matchId), {
       ...(application.source === "invitation" ? { invitationId: application.id } : {}),
       opportunityId: application.opportunityId,
@@ -869,7 +870,6 @@ export async function recordCompletedExperience(
   const matchId = application.matchId ?? `${application.opportunityId}_${application.userId}`;
   await runTransaction(firestore, async (transaction) => {
     const participationRef = doc(firestore, "participations", matchId);
-    if ((await transaction.get(participationRef)).exists()) throw new Error("Esta participación ya fue registrada.");
 
     const profileRef = doc(firestore, "volunteerProfiles", application.userId);
     const profile = (await transaction.get(profileRef)).data() as VolunteerProfile | undefined;

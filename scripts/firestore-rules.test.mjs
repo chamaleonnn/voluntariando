@@ -210,6 +210,13 @@ test("la organización puede cerrar una experiencia invitada en una sola operaci
 
   await assertSucceeds(batch.commit());
 
+  // La creación directa evita leer un documento todavía inexistente y las reglas
+  // siguen bloqueando que la organización registre dos veces la misma participación.
+  await assertFails(setDoc(doc(database, "participations/invitation_inv"), {
+    matchId: "invitation_inv", opportunityId: "opp", organizationId: "org",
+    userId: "vol", status: "completed", completedAt: serverTimestamp(),
+  }));
+
   // Además de autorizarse, el resultado debe quedar realmente persistido.
   const profile = await getDoc(doc(database, "volunteerProfiles/vol"));
   assert.equal(profile.data().verifiedSkills["Tecnología y comunicación"], 1);
