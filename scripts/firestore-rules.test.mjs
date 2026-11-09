@@ -566,6 +566,88 @@ test("el alta inicial de organización crea únicamente su propia membresía", a
   await assertSucceeds(batch.commit());
 });
 
+test("una cuenta de organización ya vinculada puede reconstruir su perfil faltante", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "users/recover-org"), {
+      displayName: "Organización recuperada", email: "recuperada@example.com",
+      role: "organization", status: "active",
+    });
+  });
+  const actor = testEnvironment.authenticatedContext("recover-org", { email: "recuperada@example.com" });
+  const database = actor.firestore();
+  await assertSucceeds(getDoc(doc(database, "organizations/recover-org")));
+  await assertSucceeds(getDoc(doc(database, "organizationMembers/recover-org_recover-org")));
+  const repair = writeBatch(database);
+  repair.update(doc(database, "users/recover-org"), { lastLoginAt: serverTimestamp() });
+  repair.set(doc(database, "organizations/recover-org"), {
+    ownerId: "recover-org", name: "Organización recuperada", email: "recuperada@example.com",
+    province: "Córdoba", location: "Córdoba", contact: "recuperada@example.com",
+    description: "", areas: [], socialLinks: {}, status: "pending", createdAt: serverTimestamp(),
+  });
+  repair.set(doc(database, "organizationMembers/recover-org_recover-org"), {
+    organizationId: "recover-org", userId: "recover-org", role: "owner", createdAt: serverTimestamp(),
+  });
+  await assertSucceeds(repair.commit());
+});
+
+test("una organización completa una vinculación antigua y actualiza un perfil legado", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const database = context.firestore();
+    await setDoc(doc(database, "users/legacy-vol"), {
+      email: "legado@example.com", role: "volunteer", status: "active",
+    });
+    await setDoc(doc(database, "volunteerProfiles/legacy-vol"), {
+      name: "Perfil legado", visibleToOrganizations: true, visibleToVolunteers: true,
+    });
+    await setDoc(doc(database, "applications/opp_legacy-vol"), {
+      opportunityId: "opp", opportunityTitle: "Apoyo escolar", organizationId: "org",
+      userId: "legacy-vol", userName: "Perfil legado", userEmail: "legado@example.com",
+      status: "accepted", createdAt: serverTimestamp(),
+    });
+  });
+  const organization = testEnvironment.authenticatedContext("org", { email: "organizacion@example.com" });
+  const database = organization.firestore();
+  const complete = writeBatch(database);
+  complete.set(doc(database, "matches/opp_legacy-vol"), {
+    opportunityId: "opp", organizationId: "org", userId: "legacy-vol",
+    source: "application", status: "completed", completedAt: serverTimestamp(),
+  }, { merge: true });
+  complete.set(doc(database, "participations/opp_legacy-vol"), {
+    matchId: "opp_legacy-vol", opportunityId: "opp", organizationId: "org",
+    userId: "legacy-vol", status: "completed", completedAt: serverTimestamp(),
+  });
+  complete.set(doc(database, "feedback/opp_legacy-vol"), {
+    matchId: "opp_legacy-vol", opportunityId: "opp", organizationId: "org",
+    organizationName: "Merendero de prueba", submittedByEmail: "organizacion@example.com",
+    volunteerId: "legacy-vol", volunteerName: "Perfil legado", opportunityTitle: "Apoyo escolar",
+    tasks: ["Acompañó al grupo"], skills: ["Educación y acompañamiento"],
+    assessment: "positive", details: "", status: "recorded", createdAt: serverTimestamp(),
+  });
+  complete.update(doc(database, "applications/opp_legacy-vol"), {
+    completedAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  });
+  complete.update(doc(database, "volunteerProfiles/legacy-vol"), {
+    verifiedSkills: { "Educación y acompañamiento": 1 },
+    experiences: [{ opportunityId: "opp", opportunityTitle: "Apoyo escolar", organization: "Merendero de prueba", tasks: ["Acompañó al grupo"], skills: ["Educación y acompañamiento"], completedAt: "2026-11-09T00:00:00.000Z" }],
+    completedExperiences: 1, lastExperienceMatchId: "opp_legacy-vol", updatedAt: serverTimestamp(),
+  });
+  await assertSucceeds(complete.commit());
+});
+
+test("la organización puede reconstruir el vínculo de una invitación aceptada", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "invitations/recover-inv"), {
+      organizationId: "org", opportunityId: "opp", userId: "vol", status: "accepted",
+    });
+  });
+  const organization = testEnvironment.authenticatedContext("org", { email: "organizacion@example.com" });
+  const database = organization.firestore();
+  await assertSucceeds(setDoc(doc(database, "matches/invitation_recover-inv"), {
+    invitationId: "recover-inv", opportunityId: "opp", organizationId: "org", userId: "vol",
+    source: "invitation", status: "confirmed", createdAt: serverTimestamp(),
+  }));
+});
+
 test("una organización verificada publica y edita sin poder transferir la oportunidad", async () => {
   const organization = testEnvironment.authenticatedContext("org", { email: "organizacion@example.com" });
   const opportunity = doc(organization.firestore(), "opportunities/secure-opp");

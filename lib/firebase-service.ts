@@ -60,6 +60,19 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
     ? "admin"
     : storedRole ?? requestedRole;
   const batch = writeBatch(firestore);
+  const volunteerProfileRef = doc(firestore, "volunteerProfiles", user.uid);
+  const organizationRef = doc(firestore, "organizations", user.uid);
+  const organizationMemberRef = doc(firestore, "organizationMembers", `${user.uid}_${user.uid}`);
+
+  // Google puede completar el acceso aunque una versión anterior no haya alcanzado
+  // a crear el perfil en Firestore. En el siguiente ingreso reparamos solo lo faltante.
+  const [volunteerProfileSnapshot, organizationSnapshot, organizationMemberSnapshot] = snapshot.exists()
+    ? await Promise.all([
+        role === "volunteer" ? getDoc(volunteerProfileRef) : Promise.resolve(null),
+        role === "organization" ? getDoc(organizationRef) : Promise.resolve(null),
+        role === "organization" ? getDoc(organizationMemberRef) : Promise.resolve(null),
+      ])
+    : [null, null, null];
 
   const suspensionUntil = stored?.suspendedUntil instanceof Timestamp ? stored.suspendedUntil.toDate() : null;
   const suspensionExpired = stored?.status === "suspended" && suspensionUntil && suspensionUntil.getTime() <= Date.now();
@@ -83,7 +96,7 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
     });
 
     if (role === "volunteer") {
-      batch.set(doc(firestore, "volunteerProfiles", user.uid), {
+      batch.set(volunteerProfileRef, {
         name: user.displayName ?? "Voluntario",
         initials: (user.displayName ?? "V").split(" ").map((part) => part[0]).join("").slice(0, 2),
         location: "Córdoba",
@@ -101,7 +114,7 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
         updatedAt: serverTimestamp(),
       });
     } else if (role === "organization") {
-      batch.set(doc(firestore, "organizations", user.uid), {
+      batch.set(organizationRef, {
         ownerId: user.uid,
         name: user.displayName ?? "Organización",
         email,
@@ -110,11 +123,12 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
         contact: email,
         description: "",
         areas: [],
+        socialLinks: {},
         // Administración debe validar la organización antes de que publique oportunidades.
         status: "pending",
         createdAt: serverTimestamp(),
       });
-      batch.set(doc(firestore, "organizationMembers", `${user.uid}_${user.uid}`), {
+      batch.set(organizationMemberRef, {
         organizationId: user.uid,
         userId: user.uid,
         role: "owner",
@@ -127,6 +141,27 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
       ...(bootstrapAdmin ? { role: "admin" } : {}),
       ...(suspensionExpired ? { status: "active", suspensionReason: null, suspendedUntil: null, updatedAt: serverTimestamp() } : {}),
     });
+    if (role === "volunteer" && volunteerProfileSnapshot && !volunteerProfileSnapshot.exists()) {
+      batch.set(volunteerProfileRef, {
+        name: user.displayName ?? "Voluntario",
+        initials: (user.displayName ?? "V").split(" ").map((part) => part[0]).join("").slice(0, 2),
+        location: "Córdoba", bio: "", completedExperiences: 0, verifiedHours: 0,
+        interests: [], declaredSkills: [], verifiedSkills: {}, availability: [], socialLinks: {}, experiences: [],
+        visibleToOrganizations: true, visibleToVolunteers: true, updatedAt: serverTimestamp(),
+      });
+    }
+    if (role === "organization" && organizationSnapshot && !organizationSnapshot.exists()) {
+      batch.set(organizationRef, {
+        ownerId: user.uid, name: user.displayName ?? "Organización", email,
+        province: "Córdoba", location: "Córdoba", contact: email,
+        description: "", areas: [], socialLinks: {}, status: "pending", createdAt: serverTimestamp(),
+      });
+    }
+    if (role === "organization" && organizationMemberSnapshot && !organizationMemberSnapshot.exists()) {
+      batch.set(organizationMemberRef, {
+        organizationId: user.uid, userId: user.uid, role: "owner", createdAt: serverTimestamp(),
+      });
+    }
   }
 
   await batch.commit();
@@ -446,7 +481,15 @@ export async function recordAbsence(application: Application, actor: SessionUser
     const participationRef = doc(firestore, "participations", matchId);
     if ((await transaction.get(participationRef)).exists()) throw new Error("Esta participación ya tiene un resultado registrado.");
     const reportRef = doc(firestore, "absenceReports", matchId);
-    transaction.update(doc(firestore, "matches", matchId), { status: "absence_pending_review", absentAt: serverTimestamp() });
+    transaction.set(doc(firestore, "matches", matchId), {
+      ...(application.source === "invitation" ? { invitationId: application.id } : {}),
+      opportunityId: application.opportunityId,
+      organizationId: application.organizationId,
+      userId: application.userId,
+      source: application.source === "invitation" ? "invitation" : "application",
+      status: "absence_pending_review",
+      absentAt: serverTimestamp(),
+    }, { merge: true });
     transaction.set(participationRef, {
       matchId, opportunityId: application.opportunityId, organizationId: application.organizationId,
       userId: application.userId, status: "absence_pending_review", reportedBy: actor.uid, reportedAt: serverTimestamp(),
@@ -865,7 +908,17 @@ export async function recordCompletedExperience(
       status: values.assessment === "needs_improvement" ? "pending_review" : "recorded",
       createdAt: serverTimestamp(),
     });
-    transaction.update(doc(firestore, "matches", matchId), { status: "completed", completedAt: serverTimestamp() });
+    // Merge permite completar también vinculaciones aceptadas con versiones anteriores,
+    // que podían no tener todavía su documento en la colección matches.
+    transaction.set(doc(firestore, "matches", matchId), {
+      ...(application.source === "invitation" ? { invitationId: application.id } : {}),
+      opportunityId: application.opportunityId,
+      organizationId: application.organizationId,
+      userId: application.userId,
+      source: application.source === "invitation" ? "invitation" : "application",
+      status: "completed",
+      completedAt: serverTimestamp(),
+    }, { merge: true });
     if (application.source === "invitation") {
       transaction.update(doc(firestore, "invitations", application.id), { completedAt: serverTimestamp() });
     } else {

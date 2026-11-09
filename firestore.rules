@@ -114,14 +114,14 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/matches/$(request.resource.data.lastExperienceMatchId)).data.status == "completed"
         && isOrganizationAdmin(getAfter(/databases/$(database)/documents/matches/$(request.resource.data.lastExperienceMatchId)).data.organizationId)
         && request.resource.data.lastExperienceMatchId != resource.data.get("lastExperienceMatchId", "")
-        && request.resource.data.completedExperiences == resource.data.completedExperiences + 1
-        && request.resource.data.experiences.size() == resource.data.experiences.size() + 1
+        && request.resource.data.completedExperiences == resource.data.get("completedExperiences", 0) + 1
+        && request.resource.data.experiences.size() == resource.data.get("experiences", []).size() + 1
         && getAfter(/databases/$(database)/documents/feedback/$(request.resource.data.lastExperienceMatchId)).data.matchId == request.resource.data.lastExperienceMatchId
         && getAfter(/databases/$(database)/documents/feedback/$(request.resource.data.lastExperienceMatchId)).data.volunteerId == userId
         && getAfter(/databases/$(database)/documents/feedback/$(request.resource.data.lastExperienceMatchId)).data.organizationId == getAfter(/databases/$(database)/documents/matches/$(request.resource.data.lastExperienceMatchId)).data.organizationId
         && getAfter(/databases/$(database)/documents/feedback/$(request.resource.data.lastExperienceMatchId)).data.skills.size() <= 3
         && verifiedSkillsAdvance(
-          resource.data.verifiedSkills,
+          resource.data.get("verifiedSkills", {}),
           request.resource.data.verifiedSkills,
           getAfter(/databases/$(database)/documents/feedback/$(request.resource.data.lastExperienceMatchId)).data.skills
         )
@@ -129,7 +129,7 @@ service cloud.firestore {
     }
 
     match /organizations/{organizationId} {
-      allow read: if resource.data.status == "verified" || owns(resource.data.ownerId) || isOrganizationAdmin(organizationId) || isAdmin();
+      allow read: if owns(organizationId) || resource.data.status == "verified" || owns(resource.data.ownerId) || isOrganizationAdmin(organizationId) || isAdmin();
       allow create: if owns(organizationId)
         && getAfter(/databases/$(database)/documents/users/$(organizationId)).data.role == "organization"
         && request.resource.data.ownerId == request.auth.uid
@@ -144,7 +144,11 @@ service cloud.firestore {
     }
 
     match /organizationMembers/{membershipId} {
-      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId));
+      allow read: if signedIn() && (
+        membershipId == request.auth.uid + "_" + request.auth.uid
+        || resource.data.userId == request.auth.uid
+        || isOrganizationAdmin(resource.data.organizationId)
+      );
       allow create: if signedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.organizationId == request.auth.uid
@@ -258,19 +262,20 @@ service cloud.firestore {
       allow create: if (
         isOrganizationAdmin(request.resource.data.organizationId)
           && request.resource.data.source == "application"
-          && request.resource.data.status == "confirmed"
+          && request.resource.data.status in ["confirmed", "completed", "absence_pending_review"]
           && matchId == request.resource.data.opportunityId + "_" + request.resource.data.userId
           && getAfter(/databases/$(database)/documents/applications/$(matchId)).data.status == "accepted"
           && getAfter(/databases/$(database)/documents/applications/$(matchId)).data.organizationId == request.resource.data.organizationId
           && getAfter(/databases/$(database)/documents/applications/$(matchId)).data.opportunityId == request.resource.data.opportunityId
           && getAfter(/databases/$(database)/documents/applications/$(matchId)).data.userId == request.resource.data.userId
       ) || (
-          hasRole("volunteer") && owns(request.resource.data.userId)
+          (hasRole("volunteer") && owns(request.resource.data.userId)
+            || isOrganizationAdmin(request.resource.data.organizationId))
           && request.resource.data.source == "invitation"
-          && request.resource.data.status == "confirmed"
+          && request.resource.data.status in ["confirmed", "completed", "absence_pending_review"]
           && matchId == "invitation_" + request.resource.data.invitationId
           && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.status == "accepted"
-          && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.userId == request.auth.uid
+          && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.userId == request.resource.data.userId
           && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.organizationId == request.resource.data.organizationId
           && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.opportunityId == request.resource.data.opportunityId
       );
