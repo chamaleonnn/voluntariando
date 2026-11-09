@@ -175,6 +175,17 @@ service cloud.firestore {
         && request.resource.data.organizationId == get(/databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)).data.organizationId;
       allow read: if signedIn() && (resource.data.userId == request.auth.uid || isOrganizationAdmin(resource.data.organizationId) || isAdmin());
       allow update: if isAdmin() || (
+        hasRole("volunteer")
+        && resource.data.userId == request.auth.uid
+        && resource.data.status in ["rejected", "cancelled"]
+        && request.resource.data.status == "pending"
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.userEmail == request.auth.token.email
+        && request.resource.data.opportunityId == resource.data.opportunityId
+        && request.resource.data.organizationId == resource.data.organizationId
+        && publicOpportunity(get(/databases/$(database)/documents/opportunities/$(resource.data.opportunityId)).data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["userName", "userEmail", "message", "status", "createdAt", "updatedAt"])
+      ) || (
         isOrganizationAdmin(resource.data.organizationId)
         && (
           (

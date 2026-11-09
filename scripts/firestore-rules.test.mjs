@@ -347,6 +347,36 @@ test("una postulación válida queda asociada a la oportunidad y al usuario aute
   }));
 });
 
+test("una solicitud rechazada puede reenviarse sin duplicar una solicitud activa", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "applications/opp_other"), {
+      id: "opp_other", opportunityId: "opp", opportunityTitle: "Apoyo escolar", organizationId: "org",
+      userId: "other", userName: "Otra persona", userEmail: "otro@example.com",
+      message: "Primer intento", status: "rejected", createdAt: new Date("2026-11-01T10:00:00.000Z"),
+    });
+  });
+  const volunteer = testEnvironment.authenticatedContext("other", { email: "otro@example.com", name: "Otra persona" });
+  const database = volunteer.firestore();
+  const retry = writeBatch(database);
+  retry.update(doc(database, "applications/opp_other"), {
+    userName: "Otra persona", userEmail: "otro@example.com", message: "Quiero volver a participar",
+    status: "pending", createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  });
+  retry.set(doc(database, "notifications/application_received_opp_other_retry"), {
+    recipientId: "org", actorId: "other", applicationId: "opp_other", opportunityId: "opp",
+    type: "application_received", title: "Nueva persona interesada",
+    message: "Otra persona quiere participar", read: false, createdAt: serverTimestamp(),
+  });
+  await assertSucceeds(retry.commit());
+});
+
+test("una solicitud aceptada no puede reenviarse", async () => {
+  const volunteer = testEnvironment.authenticatedContext("vol", { email: "voluntario@example.com", name: "Persona voluntaria" });
+  await assertFails(updateDoc(doc(volunteer.firestore(), "applications/accepted-app"), {
+    status: "pending", message: "Intento duplicado", createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  }));
+});
+
 test("la aceptación válida crea un match consistente y bloquea regresiones de estado", async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), "applications/opp_vol"), {

@@ -778,23 +778,32 @@ export async function adminUpdateOpportunity(
   return { ...target, ...values, moderatedBy: actor.uid, moderatedAt: new Date().toISOString() };
 }
 
-export async function createApplication(opportunity: Opportunity, user: SessionUser, message = "Me interesa participar.") {
+export async function createApplication(opportunity: Opportunity, user: SessionUser, message = "Me interesa participar.", previous?: Application) {
   const firestore = requireDb();
   const id = `${opportunity.id}_${user.uid}`;
   const batch = writeBatch(firestore);
-  batch.set(doc(firestore, "applications", id), {
-    id,
-    opportunityId: opportunity.id,
-    opportunityTitle: opportunity.title,
-    organizationId: opportunity.organizationId,
-    userId: user.uid,
-    userName: user.displayName,
-    userEmail: user.email,
-    message,
-    status: "pending",
-    createdAt: serverTimestamp(),
-  });
-  batch.set(doc(firestore, "notifications", `application_received_${id}`), {
+  const applicationRef = doc(firestore, "applications", id);
+  if (previous && (previous.status === "rejected" || previous.status === "cancelled")) {
+    batch.update(applicationRef, {
+      userName: user.displayName, userEmail: user.email, message, status: "pending",
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+  } else {
+    batch.set(applicationRef, {
+      id,
+      opportunityId: opportunity.id,
+      opportunityTitle: opportunity.title,
+      organizationId: opportunity.organizationId,
+      userId: user.uid,
+      userName: user.displayName,
+      userEmail: user.email,
+      message,
+      status: "pending",
+      createdAt: serverTimestamp(),
+    });
+  }
+  // Cada reenvío genera un aviso nuevo; el aviso anterior puede seguir en el historial.
+  batch.set(doc(firestore, "notifications", `application_received_${id}_${Date.now()}`), {
     recipientId: opportunity.organizationId, actorId: user.uid, applicationId: id, opportunityId: opportunity.id,
     type: "application_received", title: "Nueva persona interesada",
     message: `${user.displayName} quiere participar en ${opportunity.title}.`, read: false,

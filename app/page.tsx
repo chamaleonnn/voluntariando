@@ -156,6 +156,11 @@ function participationStatusLabel(status: Application["status"] | Invitation["st
   return status === "accepted" ? "Aceptada" : status === "rejected" ? "Rechazada" : status === "cancelled" ? "Cancelada" : "Pendiente";
 }
 
+// Solo una solicitud vigente o una experiencia ya registrada impiden volver a postularse.
+function blocksNewApplication(application: Application) {
+  return application.status === "pending" || application.status === "accepted" || Boolean(application.completedAt || application.absentAt);
+}
+
 // El acceso a la app se habilita solamente cuando existen los datos mínimos del perfil.
 function volunteerProfileIsComplete(profile: VolunteerProfile) {
   return Boolean(
@@ -412,15 +417,16 @@ export default function Home() {
   async function apply(opportunity: Opportunity) {
     if (!user) { setSelectedOpportunity(null); setAuthOpen(true); return; }
     if (user.role !== "volunteer") return toast.info("Ingresá como voluntario para mostrar interés.");
-    if (applications.some((item) => item.opportunityId === opportunity.id && item.userId === user.uid)) return toast.info("Ya mostraste interés en esta oportunidad.");
+    const previous = applications.find((item) => item.opportunityId === opportunity.id && item.userId === user.uid);
+    if (previous && blocksNewApplication(previous)) return toast.info("Ya mostraste interés en esta oportunidad.");
     const next: Application = {
       id: `${opportunity.id}_${user.uid}`, opportunityId: opportunity.id, opportunityTitle: opportunity.title,
       organizationId: opportunity.organizationId, userId: user.uid, userName: user.displayName,
       userEmail: user.email, message: "Me interesa participar.", status: "pending", createdAt: new Date().toISOString(),
     };
     try {
-      if (!user.isDemo) await createApplication(opportunity, user);
-      setApplications((current) => [...current, next]);
+      if (!user.isDemo) await createApplication(opportunity, user, "Me interesa participar.", previous);
+      setApplications((current) => [...current.filter((item) => item.id !== next.id), next]);
       setSelectedOpportunity(null);
       toast.success("Interés registrado", { description: "La organización podrá aceptar o rechazar la solicitud." });
     } catch (error) {
@@ -1086,7 +1092,7 @@ function OpportunityDialog({ opportunity, user, applications, open, onOpenChange
   const [activePhoto, setActivePhoto] = useState(0);
   if (!opportunity) return null;
   const gallery = opportunity.imageUrls?.length ? opportunity.imageUrls : [opportunity.imageUrl];
-  const applied = Boolean(user && applications.some((item) => item.opportunityId === opportunity.id && item.userId === user.uid));
+  const applied = Boolean(user && applications.some((item) => item.opportunityId === opportunity.id && item.userId === user.uid && blocksNewApplication(item)));
   const unavailableForRole = Boolean(user && user.role !== "volunteer");
   const breakdown = opportunity.compatibilityBreakdown;
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="opportunity-dialog"><div className="dialog-cover" style={{ backgroundImage: `url(${gallery[activePhoto] ?? opportunity.imageUrl})` }}><Badge>{readableText(opportunity.category)}</Badge>{opportunity.simulated && <SimulatedSeal />}</div>{gallery.length > 1 && <div className="dialog-gallery" aria-label="Fotos de la oportunidad">{gallery.map((photo, index) => <button key={`${photo.slice(-20)}-${index}`} className={index === activePhoto ? "active" : ""} style={{ backgroundImage: `url(${photo})` }} onClick={() => setActivePhoto(index)} aria-label={`Ver foto ${index + 1}`} aria-pressed={index === activePhoto} />)}</div>}<DialogHeader><DialogTitle>{readableText(opportunity.title)}</DialogTitle><DialogDescription>{readableText(opportunity.organization)}</DialogDescription><button className="organization-profile-link" type="button" onClick={() => onViewOrganization(opportunity.organizationId)}>Ver perfil de la organización <ChevronRight /></button></DialogHeader>{opportunity.compatibility !== undefined && <div className="compatibility-detail"><strong>{opportunity.compatibility}% coincide con tu perfil</strong>{breakdown && <div>{Object.entries(breakdown).map(([key, value]) => <span key={key}>{({ skills: "Habilidades", interests: "Intereses", availability: "Disponibilidad", location: "Ubicación/modalidad", experience: "Experiencias" } as Record<string, string>)[key]}: {value}%</span>)}</div>}<p>{opportunity.recommendedBecause}</p></div>}<div className="dialog-facts"><span><CalendarDays /> {readableText(opportunity.dateLabel)}</span><span><Clock3 /> {opportunity.time}</span><span><MapPin /> {readableText(opportunity.neighborhood)}</span><span>{opportunity.modality ?? "Presencial"}</span></div><p className="dialog-description">{readableText(opportunity.description)}</p><div className="dialog-columns"><section><h3>Tareas</h3>{opportunity.tasks.map((item) => <p key={item}><Check /> {readableText(item)}</p>)}</section><section><h3>Habilidades requeridas</h3>{(opportunity.requiredSkills ?? opportunity.requirements).map((item) => <p key={item}><Check /> {readableText(item)}</p>)}</section></div><OpportunityLocation opportunity={opportunity} /><DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cerrar</Button><Button disabled={applied || unavailableForRole} onClick={() => onApply(opportunity)}>{applied ? "Interés registrado" : unavailableForRole ? "Disponible para voluntarios" : "Me interesa"}</Button></DialogFooter></DialogContent></Dialog>;
