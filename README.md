@@ -68,7 +68,7 @@ Para ejecutar las pruebas de seguridad e integración de Firestore:
 npx firebase-tools emulators:exec --only firestore --project red-cercana-tao "npm run test:rules"
 ```
 
-Las pruebas locales no necesitan una clave de OpenAI. Para utilizar la explicación externa en Firebase se debe configurar `OPENAI_API_KEY` como secreto del proyecto y contar con saldo disponible en la API.
+La integración con OpenAI está implementada mediante Cloud Functions y utiliza `OPENAI_API_KEY` almacenada de forma segura en Firebase Secrets. Este servicio complementa las explicaciones de las recomendaciones y no modifica el porcentaje calculado por la aplicación.
 
 ## Documentación
 
