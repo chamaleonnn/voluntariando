@@ -62,6 +62,15 @@ service cloud.firestore {
         owns(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName", "lastLoginAt"])
       ) || (
         owns(userId)
+        && resource.data.status == "active"
+        && request.resource.data.status == "active"
+        && resource.data.role in ["volunteer", "organization"]
+        && request.resource.data.role in ["volunteer", "organization"]
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["role", "updatedAt"])
+        && exists(/databases/$(database)/documents/organizations/$(userId))
+        && exists(/databases/$(database)/documents/organizationMembers/$(userId + "_" + userId))
+      ) || (
+        owns(userId)
         && resource.data.status == "suspended"
         && resource.data.suspendedUntil < request.time
         && request.resource.data.status == "active"
@@ -128,9 +137,9 @@ service cloud.firestore {
         && validOrganizationAreas(request.resource.data);
       allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         "name", "province", "location", "contact", "description", "areas", "status", "moderationReason",
-        "moderatedBy", "moderatedAt", "updatedAt"
+        "imageUrl", "socialLinks", "moderatedBy", "moderatedAt", "updatedAt"
       ])) || (activeUser() && owns(resource.data.ownerId) && request.resource.data.ownerId == resource.data.ownerId && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-        "name", "province", "location", "contact", "description", "areas", "updatedAt"
+        "name", "province", "location", "contact", "description", "areas", "imageUrl", "socialLinks", "updatedAt"
       ]) && validOrganizationAreas(request.resource.data));
     }
 
@@ -213,6 +222,11 @@ service cloud.firestore {
           (request.resource.data.type == "absence_resolved"
             && isAdmin()
             && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/absenceReports/$(request.resource.data.absenceReportId)).data.volunteerId)
+          ||
+          (request.resource.data.type in ["account_suspended", "account_restored"]
+            && isAdmin()
+            && request.resource.data.moderationTargetId == request.resource.data.recipientId
+            && exists(/databases/$(database)/documents/users/$(request.resource.data.recipientId)))
         );
       allow update: if owns(resource.data.recipientId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read", "readAt"])
@@ -386,6 +400,14 @@ service cloud.firestore {
         && (!request.resource.data.keys().hasAny(["actorEmail"]) || request.resource.data.actorEmail == request.auth.token.email);
       allow read: if isAdmin();
       allow update, delete: if false;
+    }
+
+    // Solo administración puede poner correos en la cola; el contenido no es visible desde la app.
+    match /mail/{messageId} {
+      allow create: if isAdmin()
+        && request.resource.data.to is list
+        && request.resource.data.to.size() == 1;
+      allow read, update, delete: if false;
     }
 
     match /{document=**} { allow read, write: if false; }

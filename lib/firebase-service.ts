@@ -191,6 +191,26 @@ export async function firebaseSignOut() {
   if (auth) await signOut(auth);
 }
 
+// Permite que la persona dueña de una organización use también el camino de voluntariado.
+// La organización y su membresía se conservan para que luego pueda volver a administrarla.
+export async function switchAccountRole(user: SessionUser, nextRole: "volunteer" | "organization", volunteerProfile?: VolunteerProfile) {
+  const firestore = requireDb();
+  if (user.role === nextRole) return { ...user, role: nextRole };
+  const batch = writeBatch(firestore);
+  batch.update(doc(firestore, "users", user.uid), { role: nextRole, updatedAt: serverTimestamp() });
+  if (nextRole === "volunteer") {
+    const profileRef = doc(firestore, "volunteerProfiles", user.uid);
+    const existing = await getDoc(profileRef);
+    if (!existing.exists()) {
+      if (!volunteerProfile) throw new Error("No pudimos preparar el perfil de voluntario.");
+      const profileData = Object.fromEntries(Object.entries(volunteerProfile).filter(([key]) => key !== "id"));
+      batch.set(profileRef, { ...profileData, updatedAt: serverTimestamp() });
+    }
+  }
+  await batch.commit();
+  return { ...user, role: nextRole };
+}
+
 export function observeOpportunities(callback: (items: Opportunity[]) => void, onError: (error: Error) => void) {
   if (!db) return () => undefined;
   const source = query(
@@ -319,7 +339,7 @@ export function observeReviews(callback: (items: Review[]) => void, onError: (er
 }
 
 // Reduce la foto antes de guardarla para respetar el límite de Firestore y ahorrar datos móviles.
-async function compressReviewPhoto(file: File) {
+async function compressImage(file: File, options: { maxSide: number; quality: number; maxLength: number }) {
   const source = URL.createObjectURL(file);
   try {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -328,17 +348,28 @@ async function compressReviewPhoto(file: File) {
       element.onerror = () => reject(new Error("No pudimos leer la imagen seleccionada."));
       element.src = source;
     });
-    const scale = Math.min(1, 960 / Math.max(image.width, image.height));
+    const scale = Math.min(1, options.maxSide / Math.max(image.width, image.height));
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(image.width * scale));
     canvas.height = Math.max(1, Math.round(image.height * scale));
     canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const imageDataUrl = canvas.toDataURL("image/jpeg", 0.68);
-    if (imageDataUrl.length > 750_000) throw new Error("La imagen sigue siendo demasiado pesada. Elegí una foto más pequeña.");
+    const imageDataUrl = canvas.toDataURL("image/jpeg", options.quality);
+    if (imageDataUrl.length > options.maxLength) throw new Error("La imagen sigue siendo demasiado pesada. Elegí una foto más pequeña.");
     return imageDataUrl;
   } finally {
     URL.revokeObjectURL(source);
   }
+}
+
+async function compressReviewPhoto(file: File) {
+  return compressImage(file, { maxSide: 960, quality: 0.68, maxLength: 750_000 });
+}
+
+// Las fotos de una oportunidad se reducen más porque comparten el mismo documento.
+export async function compressOpportunityPhoto(file: File) {
+  if (!file.type.startsWith("image/")) throw new Error("Elegí un archivo de imagen.");
+  if (file.size > 8 * 1024 * 1024) throw new Error("Cada foto debe pesar menos de 8 MB.");
+  return compressImage(file, { maxSide: 1100, quality: 0.58, maxLength: 190_000 });
 }
 
 export async function createReview(review: Omit<Review, "id" | "createdAt" | "status">, photo?: File) {
@@ -642,6 +673,33 @@ export async function adminUpdateUser(
     reason: values.reason,
     createdAt: serverTimestamp(),
   });
+  const statusChanged = target.status !== values.status;
+  if (statusChanged) {
+    const suspended = values.status === "suspended";
+    const title = suspended ? "Tu cuenta fue suspendida" : "Tu cuenta fue habilitada";
+    const detail = suspended
+      ? `La suspensión es por ${Math.max(1, values.suspensionDays)} días. Motivo: ${values.reason}`
+      : `Ya podés volver a ingresar a Voluntariando. Motivo informado: ${values.reason}`;
+    batch.set(doc(firestore, "notifications", `account_${values.status}_${target.uid}_${Date.now()}`), {
+      recipientId: target.uid,
+      moderationTargetId: target.uid,
+      actorId: actor.uid,
+      type: suspended ? "account_suspended" : "account_restored",
+      title,
+      message: detail,
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+    // Cola compatible con la extensión oficial Trigger Email. El envío se activa al configurar SMTP.
+    batch.set(doc(collection(firestore, "mail")), {
+      to: [target.email],
+      message: {
+        subject: `${title} · Voluntariando`,
+        text: `${title}. ${detail}`,
+      },
+      createdAt: serverTimestamp(),
+    });
+  }
   await batch.commit();
   return { ...target, displayName: values.displayName, role: values.role, status: values.status, suspendedUntil: suspendedUntil?.toISOString(), suspensionReason: values.status === "suspended" ? values.reason : undefined };
 }

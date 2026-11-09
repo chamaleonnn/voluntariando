@@ -70,6 +70,7 @@ before(async () => {
       setDoc(doc(database, "organizations/org"), {
         ownerId: "org",
         name: "Merendero de prueba",
+        areas: ["Asistencia comunitaria"],
         status: "verified",
       }),
       setDoc(doc(database, "organizations/pending-org"), {
@@ -400,6 +401,29 @@ test("administración puede validar una organización pendiente", async () => {
     moderatedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }));
+});
+
+test("la organización puede actualizar su foto y sus redes públicas", async () => {
+  const organization = testEnvironment.authenticatedContext("org", {
+    email: "organizacion@example.com",
+  });
+  const profile = doc(organization.firestore(), "organizations/org");
+
+  await assertSucceeds(updateDoc(profile, {
+    imageUrl: "data:image/webp;base64,foto-de-prueba",
+    socialLinks: {
+      instagram: "https://instagram.com/merendero",
+      linkedin: "",
+      other: "https://merendero.example",
+    },
+    updatedAt: serverTimestamp(),
+  }));
+
+  const volunteer = testEnvironment.authenticatedContext("vol", {
+    email: "voluntario@example.com",
+  });
+  const publicProfile = await assertSucceeds(getDoc(doc(volunteer.firestore(), "organizations/org")));
+  assert.equal(publicProfile.data().socialLinks.instagram, "https://instagram.com/merendero");
 });
 
 test("solo administración puede confirmar una devolución negativa y advertir en privado", async () => {
@@ -784,4 +808,48 @@ test("recorrido integrado: postulación, vínculo, experiencia y recomendación 
   const result = calculateCompatibility(after, opportunity);
   assert.deepEqual(result.breakdown, { skills: 65, interests: 100, availability: 100, location: 100, experience: 100 });
   assert.equal(result.score, 90);
+});
+
+test("la persona dueña puede alternar entre organización y voluntariado sin perder su organización", async () => {
+  const organization = testEnvironment.authenticatedContext("org", { email: "organizacion@example.com" });
+  const database = organization.firestore();
+  const becomeVolunteer = writeBatch(database);
+  becomeVolunteer.update(doc(database, "users/org"), { role: "volunteer", updatedAt: serverTimestamp() });
+  becomeVolunteer.set(doc(database, "volunteerProfiles/org"), {
+    name: "Organización como voluntaria", initials: "OV", location: "Córdoba", bio: "",
+    completedExperiences: 0, verifiedHours: 0, interests: [], declaredSkills: [],
+    verifiedSkills: {}, availability: [], socialLinks: {}, experiences: [],
+    visibleToOrganizations: true, visibleToVolunteers: true, updatedAt: serverTimestamp(),
+  });
+  await assertSucceeds(becomeVolunteer.commit());
+  assert.equal((await getDoc(doc(database, "users/org"))).data().role, "volunteer");
+  assert.equal((await getDoc(doc(database, "organizations/org"))).data().name, "Merendero de prueba");
+
+  await assertSucceeds(updateDoc(doc(database, "users/org"), { role: "organization", updatedAt: serverTimestamp() }));
+  assert.equal((await getDoc(doc(database, "users/org"))).data().role, "organization");
+});
+
+test("administración puede avisar una suspensión en la app y preparar un correo privado", async () => {
+  const admin = testEnvironment.authenticatedContext("admin", { email: "admin@example.com" });
+  const database = admin.firestore();
+  const moderation = writeBatch(database);
+  moderation.update(doc(database, "users/other"), {
+    status: "suspended", suspensionReason: "Revisión administrativa",
+    suspendedUntil: new Date("2027-01-01T00:00:00.000Z"), moderatedBy: "admin", updatedAt: serverTimestamp(),
+  });
+  moderation.set(doc(database, "notifications/account_suspended_other_test"), {
+    recipientId: "other", moderationTargetId: "other", actorId: "admin",
+    type: "account_suspended", title: "Tu cuenta fue suspendida",
+    message: "Revisá el motivo informado", read: false, createdAt: serverTimestamp(),
+  });
+  moderation.set(doc(database, "mail/suspension-other-test"), {
+    to: ["otro@example.com"], message: { subject: "Aviso", text: "Cuenta suspendida" },
+    createdAt: serverTimestamp(),
+  });
+  await assertSucceeds(moderation.commit());
+
+  const outsider = testEnvironment.authenticatedContext("vol", { email: "voluntario@example.com" });
+  await assertFails(setDoc(doc(outsider.firestore(), "mail/forbidden"), {
+    to: ["voluntario@example.com"], message: { subject: "No", text: "No" },
+  }));
 });

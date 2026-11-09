@@ -25,6 +25,8 @@ export type Opportunity = {
   availability?: string[];
   requiredSkills?: string[];
   imageUrl: string;
+  // La primera imagen funciona como portada; las restantes forman la galería.
+  imageUrls?: string[];
   recommendedBecause?: string;
   compatibility?: number;
   compatibilityBreakdown?: {
@@ -123,7 +125,8 @@ export type AppNotification = {
   invitationId?: string;
   feedbackId?: string;
   absenceReportId?: string;
-  type: "application_received" | "application_accepted" | "application_rejected" | "proposal_received" | "proposal_accepted" | "proposal_rejected" | "feedback_warning" | "absence_reported" | "absence_resolved";
+  moderationTargetId?: string;
+  type: "application_received" | "application_accepted" | "application_rejected" | "proposal_received" | "proposal_accepted" | "proposal_rejected" | "feedback_warning" | "absence_reported" | "absence_resolved" | "account_suspended" | "account_restored";
   title: string;
   message: string;
   read: boolean;
@@ -196,6 +199,12 @@ export type Organization = {
   areas?: string[];
   location?: string;
   contact?: string;
+  imageUrl?: string;
+  socialLinks?: {
+    instagram?: string;
+    linkedin?: string;
+    other?: string;
+  };
   status: "pending" | "verified" | "suspended";
   moderationReason?: string;
   moderatedAt?: string;
