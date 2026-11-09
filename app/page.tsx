@@ -114,6 +114,26 @@ function readableList(value: FormDataEntryValue | null) {
   return splitList(value).map((item) => readableText(item));
 }
 
+// Protege la identidad en la comunidad: conserva el nombre y abrevia cada apellido.
+function privateVolunteerName(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return parts[0] || "Voluntario";
+  return `${parts[0]} ${parts.slice(1).map((part) => `${part.charAt(0).toLocaleUpperCase("es")}.`).join(" ")}`;
+}
+
+// Muestra el usuario de Instagram compartido sin revelar información adicional del perfil.
+function instagramLabel(value: string) {
+  try {
+    const url = new URL(value.startsWith("http") ? value : `https://${value}`);
+    const handle = url.pathname.split("/").filter(Boolean)[0]?.replace(/^@/, "");
+    if (handle) return `Instagram · @${handle}`;
+    const host = url.hostname.replace(/^www\./, "");
+    return host && host !== "instagram.com" ? `Instagram · ${host}` : "Instagram";
+  } catch {
+    return "Instagram";
+  }
+}
+
 function registerVerifiedSkills(current: Record<string, number>, skills: string[]) {
   return skills.reduce((levels, skill) => ({ ...levels, [skill]: (levels[skill] ?? 0) + 1 }), { ...current });
 }
@@ -638,7 +658,7 @@ function VolunteerPanel({ user, profile, applications, invitations, absenceRepor
       <section className="panel-card wide-panel" data-tour="volunteer-experiences"><div className="panel-heading"><div><span>Trayectoria</span><h2>Experiencias verificadas</h2></div></div><div className="timeline-list">{(profile.experiences ?? []).length ? profile.experiences!.map((item) => <div key={`${item.opportunityId}-${item.completedAt}`}><span className="timeline-icon"><Check /></span><div><b>{item.opportunityTitle}</b><p>{item.organization} · {item.tasks.join(", ")}</p><small>Habilidades observadas: {item.skills.join(", ")}</small></div></div>) : <p className="panel-note">Las experiencias completadas aparecerán acá.</p>}</div></section>
       <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Asistencia</span><h2>Historial de ausencias</h2></div></div><div className="timeline-list">{absenceReports.map((item) => <div key={item.id}><span className="timeline-icon"><Clock3 /></span><div><b>{item.opportunityTitle}</b><p>{item.organizationName} · {item.status === "confirmed" ? "Ausencia confirmada" : item.status === "dismissed" ? "Reporte descartado" : "Pendiente de revisión"}</p>{item.reviewReason && <small>{item.reviewReason}</small>}</div><Badge variant="secondary">{item.status === "confirmed" ? "Confirmada" : item.status === "dismissed" ? "Descartada" : "En revisión"}</Badge></div>)}{!absenceReports.length && <p className="panel-note">No tenés ausencias registradas.</p>}</div></section>
       <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Organizaciones</span><h2>Conocé quiénes publican oportunidades</h2></div></div><div className="organization-card-grid">{organizations.map((item) => <article key={item.id}><div className="organization-card-photo" style={item.imageUrl ? { backgroundImage: `url(${item.imageUrl})` } : undefined}>{!item.imageUrl && <Building2 />}</div><div><span>{(item.areas ?? []).slice(0, 2).join(" · ") || "Organización social"}</span><h3>{item.name}</h3><p>{item.description}</p><small><MapPin /> {item.location ?? item.province}</small></div><Button variant="outline" size="sm" onClick={() => onViewOrganization?.(item)}>Ver perfil</Button></article>)}{!organizations.length && <p className="panel-note">Todavía no hay organizaciones visibles.</p>}</div></section>
-      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Comunidad</span><h2>Otros voluntarios</h2></div></div><div className="volunteer-card-grid">{community.filter((item) => item.id !== profile.id).map((item) => <article key={item.id}><span className="profile-avatar">{item.initials}</span><div><b>{item.name}</b><p>{item.location}</p><small>{item.bio || (item.declaredSkills ?? []).slice(0, 3).join(" · ")}</small>{Object.values(item.socialLinks ?? {}).some(Boolean) && <span className="social-links">{item.socialLinks?.instagram && <a href={item.socialLinks.instagram} target="_blank" rel="noreferrer">Instagram</a>}{item.socialLinks?.linkedin && <a href={item.socialLinks.linkedin} target="_blank" rel="noreferrer">LinkedIn</a>}{item.socialLinks?.other && <a href={item.socialLinks.other} target="_blank" rel="noreferrer">Sitio</a>}</span>}</div></article>)}{community.filter((item) => item.id !== profile.id).length === 0 && <p className="panel-note">Todavía no hay otros perfiles visibles.</p>}</div></section>
+      <section className="panel-card wide-panel"><div className="panel-heading"><div><span>Comunidad</span><h2>Otros voluntarios</h2></div></div><p className="panel-note">Por privacidad, los apellidos aparecen abreviados. Las redes solo se muestran si cada persona decidió compartirlas.</p><div className="volunteer-card-grid">{community.filter((item) => item.id !== profile.id).map((item) => <article key={item.id}><span className="profile-avatar">{item.initials}</span><div><b>{privateVolunteerName(item.name)}</b><p>{item.location}</p><small>{item.bio || (item.declaredSkills ?? []).slice(0, 3).join(" · ")}</small>{Object.values(item.socialLinks ?? {}).some(Boolean) && <span className="social-links">{item.socialLinks?.instagram && <a href={item.socialLinks.instagram} target="_blank" rel="noreferrer">{instagramLabel(item.socialLinks.instagram)}</a>}{item.socialLinks?.linkedin && <a href={item.socialLinks.linkedin} target="_blank" rel="noreferrer">LinkedIn</a>}{item.socialLinks?.other && <a href={item.socialLinks.other} target="_blank" rel="noreferrer">Sitio</a>}</span>}</div></article>)}{community.filter((item) => item.id !== profile.id).length === 0 && <p className="panel-note">Todavía no hay otros perfiles visibles.</p>}</div></section>
     </div><VolunteerProfileDialog user={user} profile={profile} open={editOpen} onOpenChange={setEditOpen} onSaved={onProfile} /><ReviewDialog user={user} application={reviewApplication} organizationName={opportunities.find((item) => item.id === reviewApplication?.opportunityId)?.organization ?? "Organización participante"} open={Boolean(reviewApplication)} onOpenChange={(nextOpen) => !nextOpen && setReviewApplication(null)} onSaved={onReview} />
   </Dashboard>;
 }
