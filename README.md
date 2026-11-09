@@ -2,7 +2,7 @@
 
 Sistema inteligente de gestión y vinculación de voluntariado.
 
-Trabajo Final de Grado — Ingeniería en Software — Universidad Siglo 21.
+Entrega 4 del Trabajo Final de Grado — Ingeniería en Software — Universidad Siglo 21.
 
 Voluntariando conecta personas interesadas en ayudar con organizaciones que publican oportunidades. La aplicación permite crear perfiles, buscar actividades, registrar postulaciones e invitaciones, confirmar participaciones y guardar las experiencias realizadas.
 
