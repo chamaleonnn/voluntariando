@@ -77,6 +77,8 @@ const AVAILABILITY_OPTIONS = [
   "Flexible",
 ] as const;
 
+const HIGH_COMPATIBILITY_MIN = 60;
+
 const ARGENTINA_PROVINCES = [
   "Buenos Aires", "Ciudad Autónoma de Buenos Aires", "Catamarca", "Chaco", "Chubut",
   "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja",
@@ -294,9 +296,23 @@ export default function Home() {
   }, [user]);
 
   async function readNotification(item: AppNotification) {
-    if (item.read) return;
-    setNotifications((current) => current.map((notification) => notification.id === item.id ? { ...notification, read: true } : notification));
-    if (user && !user.isDemo) await markNotificationRead(item.id).catch(() => undefined);
+    if (!item.read) {
+      setNotifications((current) => current.map((notification) => notification.id === item.id ? { ...notification, read: true } : notification));
+      if (user && !user.isDemo) await markNotificationRead(item.id).catch(() => undefined);
+    }
+    // Las notificaciones nuevas guardan la oportunidad directamente. Para las
+    // anteriores se recupera desde su invitación o postulación asociada.
+    const invitation = item.invitationId ? invitations.find((current) => current.id === item.invitationId) : undefined;
+    const application = item.applicationId ? applications.find((current) => current.id === item.applicationId) : undefined;
+    const opportunityId = item.opportunityId ?? invitation?.opportunityId ?? application?.opportunityId;
+    const opportunity = opportunityId ? opportunities.find((current) => current.id === opportunityId) : undefined;
+    if (opportunity) {
+      const personalized = user?.role === "volunteer" && profile
+        ? recommendOpportunities([opportunity], profile)[0]
+        : opportunity;
+      setSelectedOpportunity(personalized);
+      setScreen("opportunities");
+    }
   }
 
   const recommended = useMemo(
@@ -534,7 +550,7 @@ function SiteHeader({ screen, user, notifications, onReadNotification, onTutoria
 }
 
 function NotificationDialog({ notifications, open, onOpenChange, onRead }: { notifications: AppNotification[]; open: boolean; onOpenChange: (open: boolean) => void; onRead: (item: AppNotification) => void }) {
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="notification-dialog"><DialogHeader><DialogTitle>Notificaciones</DialogTitle><DialogDescription>Solicitudes y respuestas de tus participaciones.</DialogDescription></DialogHeader><div className="notification-list">{notifications.map((item) => <button key={item.id} className={item.read ? "read" : ""} onClick={() => onRead(item)}><span>{item.type === "application_received" ? "👤" : item.type === "application_accepted" ? "✓" : "↪"}</span><div><b>{item.title}</b><p>{item.message}</p><small>{new Date(item.createdAt).toLocaleDateString("es-AR")}</small></div>{!item.read && <i />}</button>)}{!notifications.length && <p className="panel-note">Todavía no tenés notificaciones.</p>}</div><DialogFooter><Button onClick={() => onOpenChange(false)}>Cerrar</Button></DialogFooter></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="notification-dialog"><DialogHeader><DialogTitle>Notificaciones</DialogTitle><DialogDescription>Solicitudes y respuestas de tus participaciones.</DialogDescription></DialogHeader><div className="notification-list">{notifications.map((item) => <button key={item.id} className={item.read ? "read" : ""} onClick={() => { onRead(item); onOpenChange(false); }}><span>{item.type === "application_received" ? "👤" : item.type === "application_accepted" ? "✓" : "↪"}</span><div><b>{item.title}</b><p>{item.message}</p><small>{new Date(item.createdAt).toLocaleDateString("es-AR")}{(item.opportunityId || item.invitationId || item.applicationId) ? " · Ver oportunidad" : ""}</small></div>{!item.read && <i />}</button>)}{!notifications.length && <p className="panel-note">Todavía no tenés notificaciones.</p>}</div><DialogFooter><Button onClick={() => onOpenChange(false)}>Cerrar</Button></DialogFooter></DialogContent></Dialog>;
 }
 
 function Landing({ opportunities, reviews, reviewPhotos, user, onExplore, onLogin, onAccount }: { opportunities: Opportunity[]; reviews: Review[]; reviewPhotos: ReviewPhoto[]; user: SessionUser | null; onExplore: () => void; onLogin: () => void; onAccount: () => void }) {
@@ -630,6 +646,26 @@ function OrganizationPanel({ user, organization, opportunities, applications, in
   const [invitedVolunteer, setInvitedVolunteer] = useState<VolunteerProfile | null>(null);
   const own = opportunities.filter((item) => item.organizationId === organization.id || (user.isDemo && item.organizationId === "fundemos"));
   const requests = applications.filter((item) => own.some((opportunity) => opportunity.id === item.opportunityId) || user.isDemo);
+  // Para la organización se usa el mismo cálculo que ordena oportunidades al voluntario,
+  // pero se toma el mejor resultado de cada perfil frente a sus publicaciones.
+  const rankedVolunteers = volunteers
+    .map((volunteer) => {
+      const bestOpportunity = recommendOpportunities(own, volunteer)[0];
+      return { volunteer, bestOpportunity, compatibility: bestOpportunity?.compatibility ?? 0 };
+    })
+    .sort((left, right) => right.compatibility - left.compatibility || left.volunteer.name.localeCompare(right.volunteer.name, "es"));
+  const highCompatibilityVolunteers = rankedVolunteers.filter((item) => item.compatibility >= HIGH_COMPATIBILITY_MIN);
+  const suggestedVolunteers = !own.length ? [] : highCompatibilityVolunteers.length ? highCompatibilityVolunteers : rankedVolunteers.slice(0, 5);
+  const volunteerById = new globalThis.Map(volunteers.map((item) => [item.id, item]));
+  const opportunityById = new globalThis.Map(own.map((item) => [item.id, item]));
+  const rankedInvitations = invitations
+    .map((invitation) => {
+      const volunteer = volunteerById.get(invitation.userId);
+      const opportunity = opportunityById.get(invitation.opportunityId);
+      const compatibility = volunteer && opportunity ? calculateCompatibility(volunteer, opportunity).score : 0;
+      return { invitation, compatibility };
+    })
+    .sort((left, right) => right.compatibility - left.compatibility);
   const hasCompletedExperience = requests.some((item) => Boolean(item.completedAt)) || invitations.some((item) => Boolean(item.completedAt));
   async function decide(item: Application, status: "accepted" | "rejected") {
     try {
@@ -652,12 +688,12 @@ function OrganizationPanel({ user, organization, opportunities, applications, in
     <div className="dashboard-grid"><section className="panel-card wide-panel" data-tour="organization-profile"><div className="panel-heading"><div><span>Perfil</span><h2>Información de la organización</h2></div><Button data-tour-action="organization-edit-profile" variant="outline" onClick={() => setProfileOpen(true)}><Pencil /> Editar</Button></div>{!canPublish && <p className="match-note"><b>Validación pendiente.</b> Podés completar el perfil, pero las publicaciones se habilitan cuando administración revise los datos.</p>}<div className="organization-profile-summary"><div className="organization-summary-photo" style={organization.imageUrl ? { backgroundImage: `url(${organization.imageUrl})` } : undefined}>{!organization.imageUrl && <Building2 />}</div><div><p>{organization.description}</p><Info label="Áreas de trabajo" value={(organization.areas ?? []).join(" · ") || "Todavía no informadas"} /><Info label="Ubicación" value={organization.location ?? organization.province} /><Info label="Contacto" value={organization.contact ?? organization.email} /></div></div></section>
       <CollapsibleListSection data-tour="organization-opportunities" eyebrow="Publicaciones" title="Oportunidades" items={own} getKey={(item) => item.id} searchText={(item) => `${item.title} ${item.category} ${item.modality} ${item.province}`} searchPlaceholder="Buscar oportunidad" emptyText="Todavía no publicaste oportunidades." renderItem={(item) => <><span className="timeline-icon"><CalendarDays /></span><div><b>{item.title}</b><p>{item.modality ?? "Presencial"} · {(item.availability ?? []).join(", ")}</p></div><Button size="sm" variant="outline" onClick={() => { setEditing(item); setOpportunityOpen(true); }}>Editar</Button></>} />
       <CollapsibleListSection data-tour="organization-applications" eyebrow="Vinculación" title="Solicitudes de participación" items={requests} getKey={(item) => item.id} searchText={(item) => `${item.userName} ${item.userEmail ?? ""} ${item.opportunityTitle} ${item.status}`} searchPlaceholder="Buscar persona o oportunidad" emptyText="Todavía no recibiste solicitudes." defaultOpen={requests.some((item) => item.status === "pending")} renderItem={(item) => <><span className="profile-avatar">{item.userName.charAt(0)}</span><div><b>{item.userName}</b><p>{item.opportunityTitle} · {participationStatusLabel(item.status)}</p>{item.status === "accepted" && item.userEmail && <small>Contacto habilitado: <a href={`mailto:${item.userEmail}`}>{item.userEmail}</a></small>}</div>{item.status === "pending" ? <span className="inline-actions"><Button size="sm" onClick={() => void decide(item, "accepted")}>Aceptar</Button><Button size="sm" variant="outline" onClick={() => void decide(item, "rejected")}>Rechazar</Button></span> : item.status === "accepted" && !item.completedAt && !item.absentAt ? <span className="inline-actions"><Button size="sm" onClick={() => setExperience(item)}>Marcar realizada</Button><Button size="sm" variant="outline" onClick={() => setAbsence(item)}>Informar ausencia</Button></span> : <Badge variant="secondary">{item.completedAt ? "Completada" : item.absentAt ? "Ausencia en revisión" : participationStatusLabel(item.status)}</Badge>}</>} />
-      <CollapsibleListSection data-tour="organization-volunteers" eyebrow="Descubrir personas" title="Voluntarios disponibles" items={volunteers} getKey={(item) => item.id} searchText={(item) => `${item.name} ${item.location} ${(item.declaredSkills ?? []).join(" ")} ${item.bio}`} searchPlaceholder="Buscar voluntario o habilidad" emptyText="Todavía no hay perfiles disponibles para organizaciones." defaultOpen={false} renderItem={(volunteer) => { const pending = invitations.some((item) => item.userId === volunteer.id && item.status === "pending"); return <><span className="profile-avatar">{volunteer.initials}</span><div><b>{volunteer.name}</b><p>{volunteer.location}</p><small>{(volunteer.declaredSkills ?? []).slice(0, 3).join(" · ") || "Perfil en formación"}</small></div><Button size="sm" variant="outline" disabled={pending || !own.length} onClick={() => setInvitedVolunteer(volunteer)}>{pending ? "Invitación enviada" : "Invitar"}</Button></>; }} />
-      <CollapsibleListSection data-tour="organization-invitations" eyebrow="Propuestas directas" title="Estado de invitaciones" items={invitations} getKey={(item) => item.id} searchText={(item) => `${item.userName} ${item.opportunityTitle} ${item.status}`} searchPlaceholder="Buscar invitación" emptyText="Las invitaciones enviadas aparecerán acá." defaultOpen={false} renderItem={(item) => <><span className="profile-avatar">{item.userName.charAt(0)}</span><div><b>{item.userName}</b><p>{item.opportunityTitle} · {item.completedAt ? "experiencia completada" : item.absentAt ? "ausencia en revisión" : item.status === "accepted" ? "invitación aceptada" : item.status === "rejected" ? "invitación rechazada" : "esperando respuesta"}</p></div>{item.status === "accepted" && !item.completedAt && !item.absentAt ? <span className="inline-actions"><Button size="sm" onClick={() => setExperience(invitationAsApplication(item))}>Marcar realizada</Button><Button size="sm" variant="outline" onClick={() => setAbsence(invitationAsApplication(item))}>Informar ausencia</Button></span> : <Badge variant="secondary">{item.completedAt ? "Completada" : item.absentAt ? "En revisión" : participationStatusLabel(item.status)}</Badge>}</>} />
+      <CollapsibleListSection data-tour="organization-volunteers" eyebrow="Descubrir personas" title="Voluntarios disponibles" items={suggestedVolunteers} getKey={(item) => item.volunteer.id} searchText={(item) => `${item.volunteer.name} ${item.volunteer.location} ${(item.volunteer.declaredSkills ?? []).join(" ")} ${item.volunteer.bio} ${item.bestOpportunity?.title ?? ""}`} searchPlaceholder="Buscar voluntario o habilidad" emptyText={own.length ? "Todavía no hay perfiles compatibles con estas oportunidades." : "Publicá una oportunidad para recibir sugerencias de voluntarios."} defaultOpen={false} renderItem={({ volunteer, bestOpportunity, compatibility }) => { const pending = invitations.some((item) => item.userId === volunteer.id && item.status === "pending"); return <><span className="profile-avatar">{volunteer.initials}</span><div><b>{volunteer.name}</b><p>{volunteer.location} · {compatibility}% de coincidencia</p><small>{bestOpportunity ? `Mejor opción: ${bestOpportunity.title}` : "Perfil en formación"}</small></div><Button size="sm" variant="outline" disabled={pending || !own.length} onClick={() => setInvitedVolunteer(volunteer)}>{pending ? "Invitación enviada" : "Invitar"}</Button></>; }} />
+      <CollapsibleListSection data-tour="organization-invitations" eyebrow="Propuestas directas" title="Estado de invitaciones" items={rankedInvitations} getKey={(item) => item.invitation.id} searchText={(item) => `${item.invitation.userName} ${item.invitation.opportunityTitle} ${item.invitation.status}`} searchPlaceholder="Buscar invitación" emptyText="Las invitaciones enviadas aparecerán acá." defaultOpen={false} renderItem={({ invitation: item, compatibility }) => <><span className="profile-avatar">{item.userName.charAt(0)}</span><div><b>{item.userName}</b><p>{item.opportunityTitle} · {compatibility}% de coincidencia · {item.completedAt ? "experiencia completada" : item.absentAt ? "ausencia en revisión" : item.status === "accepted" ? "invitación aceptada" : item.status === "rejected" ? "invitación rechazada" : "esperando respuesta"}</p></div>{item.status === "accepted" && !item.completedAt && !item.absentAt ? <span className="inline-actions"><Button size="sm" onClick={() => setExperience(invitationAsApplication(item))}>Marcar realizada</Button><Button size="sm" variant="outline" onClick={() => setAbsence(invitationAsApplication(item))}>Informar ausencia</Button></span> : <Badge variant="secondary">{item.completedAt ? "Completada" : item.absentAt ? "En revisión" : participationStatusLabel(item.status)}</Badge>}</>} />
     </div>
     <OrganizationProfileDialog user={user} organization={organization} open={profileOpen} onOpenChange={setProfileOpen} onSaved={onOrganization} />
     <OpportunityEditor key={`${editing?.id ?? "new"}-${opportunityOpen ? "open" : "closed"}`} user={user} organization={organization} opportunity={editing} open={opportunityOpen} onOpenChange={setOpportunityOpen} onSaved={(next) => onOpportunities(editing ? opportunities.map((item) => item.id === next.id ? next : item) : [next, ...opportunities])} />
-    <InvitationDialog user={user} organization={organization} volunteer={invitedVolunteer} opportunities={own} open={Boolean(invitedVolunteer)} onOpenChange={(open) => !open && setInvitedVolunteer(null)} onSaved={(next) => onInvitations([next, ...invitations.filter((item) => item.id !== next.id)])} />
+    <InvitationDialog key={invitedVolunteer?.id ?? "closed"} user={user} organization={organization} volunteer={invitedVolunteer} opportunities={own} open={Boolean(invitedVolunteer)} onOpenChange={(open) => !open && setInvitedVolunteer(null)} onSaved={(next) => onInvitations([next, ...invitations.filter((item) => item.id !== next.id)])} />
     <ExperienceDialog user={user} organization={organization} application={experience} open={Boolean(experience)} onOpenChange={(open) => !open && setExperience(null)} onCompleted={(next, skills, tasks) => { if (next.source === "invitation") onInvitations(invitations.map((item) => item.id === next.id ? { ...item, completedAt: next.completedAt } : item)); else onApplications(applications.map((item) => item.id === next.id ? next : item)); onProfile({ ...DEMO_VOLUNTEERS[0], completedExperiences: DEMO_VOLUNTEERS[0].completedExperiences + 1, verifiedSkills: registerVerifiedSkills(DEMO_VOLUNTEERS[0].verifiedSkills ?? {}, skills), experiences: [...(DEMO_VOLUNTEERS[0].experiences ?? []), { opportunityId: next.opportunityId, opportunityTitle: next.opportunityTitle, organization: organization.name, tasks, skills, completedAt: new Date().toISOString() }] }); if (!hasCompletedExperience) onFirstExperience(); }} />
     <AbsenceDialog user={user} organization={organization} application={absence} open={Boolean(absence)} onOpenChange={(open) => !open && setAbsence(null)} onSaved={(next) => { if (next.source === "invitation") onInvitations(invitations.map((item) => item.id === next.id ? { ...item, absentAt: next.absentAt } : item)); else onApplications(applications.map((item) => item.id === next.id ? next : item)); }} />
   </Dashboard>;
@@ -1149,6 +1185,7 @@ function OrganizationProfileDialog({ user, organization, open, onOpenChange, onS
 function InvitationDialog({ user, organization, volunteer, opportunities, open, onOpenChange, onSaved }: { user: SessionUser; organization: Organization; volunteer: VolunteerProfile | null; opportunities: Opportunity[]; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (invitation: Invitation) => void }) {
   const [loading, setLoading] = useState(false);
   if (!volunteer) return null;
+  const rankedOpportunities = recommendOpportunities(opportunities, volunteer);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -1166,7 +1203,7 @@ function InvitationDialog({ user, organization, volunteer, opportunities, open, 
     } catch (error) { toast.error("No pudimos enviar la propuesta", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); }
     finally { setLoading(false); }
   }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="create-dialog"><DialogHeader><DialogTitle>Invitar a {volunteer.name}</DialogTitle><DialogDescription>La propuesta llegará como notificación y la vinculación se confirmará cuando la persona acepte.</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label className="full">Oportunidad<Select name="opportunityId" defaultValue={opportunities[0]?.id}><SelectTrigger><SelectValue placeholder="Elegí una oportunidad" /></SelectTrigger><SelectContent>{opportunities.map((item) => <SelectItem key={item.id} value={item.id}>{item.title}</SelectItem>)}</SelectContent></Select></label><label className="full">Mensaje<Textarea name="message" minLength={10} maxLength={400} defaultValue={`Hola ${volunteer.name}, creemos que tu perfil puede aportar mucho a esta oportunidad. ¿Te gustaría participar?`} required /></label><DialogFooter className="full"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={loading}>{loading ? "Enviando…" : "Enviar propuesta"}</Button></DialogFooter></form></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="create-dialog"><DialogHeader><DialogTitle>Invitar a {volunteer.name}</DialogTitle><DialogDescription>La propuesta llegará como notificación. Desde ahí podrá abrir la oportunidad antes de aceptar o rechazar.</DialogDescription></DialogHeader><form className="create-form" onSubmit={submit}><label className="full">Oportunidad<Select name="opportunityId" defaultValue={rankedOpportunities[0]?.id}><SelectTrigger><SelectValue placeholder="Elegí una oportunidad" /></SelectTrigger><SelectContent>{rankedOpportunities.map((item) => <SelectItem key={item.id} value={item.id}>{item.title} · {item.compatibility ?? 0}%</SelectItem>)}</SelectContent></Select></label><label className="full">Mensaje<Textarea name="message" minLength={10} maxLength={400} defaultValue={`Hola ${volunteer.name}, creemos que tu perfil puede aportar mucho a esta oportunidad. ¿Te gustaría participar?`} required /></label><DialogFooter className="full"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={loading}>{loading ? "Enviando…" : "Enviar propuesta"}</Button></DialogFooter></form></DialogContent></Dialog>;
 }
 
 function OpportunityEditor({ user, organization, opportunity, open, onOpenChange, onSaved }: { user: SessionUser; organization: Organization; opportunity: Opportunity | null; open: boolean; onOpenChange: (open: boolean) => void; onSaved: (opportunity: Opportunity) => void }) {

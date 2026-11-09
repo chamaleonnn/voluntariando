@@ -319,7 +319,7 @@ export async function createInvitation(actor: SessionUser, organization: Organiz
     createdAt: serverTimestamp(),
   });
   batch.set(doc(firestore, "notifications", `proposal_received_${id}`), {
-    recipientId: volunteer.id, actorId: actor.uid, invitationId: id,
+    recipientId: volunteer.id, actorId: actor.uid, invitationId: id, opportunityId: opportunity.id,
     type: "proposal_received", title: "Tenés una propuesta",
     message: `${organization.name} te invitó a ${opportunity.title}.`, read: false,
     createdAt: serverTimestamp(),
@@ -340,7 +340,7 @@ export async function updateInvitationStatus(actor: SessionUser, invitation: Inv
     });
   }
   batch.set(doc(firestore, "notifications", `proposal_${status}_${invitation.id}`), {
-    recipientId: invitation.organizationId, actorId: actor.uid, invitationId: invitation.id,
+    recipientId: invitation.organizationId, actorId: actor.uid, invitationId: invitation.id, opportunityId: invitation.opportunityId,
     type: status === "accepted" ? "proposal_accepted" : "proposal_rejected",
     title: status === "accepted" ? "Propuesta aceptada" : "Propuesta rechazada",
     message: `${invitation.userName} ${status === "accepted" ? "aceptó" : "rechazó"} la invitación a ${invitation.opportunityTitle}.`,
@@ -795,7 +795,7 @@ export async function createApplication(opportunity: Opportunity, user: SessionU
     createdAt: serverTimestamp(),
   });
   batch.set(doc(firestore, "notifications", `application_received_${id}`), {
-    recipientId: opportunity.organizationId, actorId: user.uid, applicationId: id,
+    recipientId: opportunity.organizationId, actorId: user.uid, applicationId: id, opportunityId: opportunity.id,
     type: "application_received", title: "Nueva persona interesada",
     message: `${user.displayName} quiere participar en ${opportunity.title}.`, read: false,
     createdAt: serverTimestamp(),
@@ -820,7 +820,7 @@ export async function updateApplicationStatus(application: Application, status: 
   batch.update(doc(firestore, "applications", application.id), { status, updatedAt: serverTimestamp() });
   if (status === "accepted" || status === "rejected") {
     batch.set(doc(firestore, "notifications", `application_${status}_${application.id}`), {
-      recipientId: application.userId, actorId: application.organizationId, applicationId: application.id,
+      recipientId: application.userId, actorId: application.organizationId, applicationId: application.id, opportunityId: application.opportunityId,
       type: status === "accepted" ? "application_accepted" : "application_rejected",
       title: status === "accepted" ? "¡Tu participación fue aceptada!" : "Respuesta de la organización",
       message: status === "accepted" ? `Confirmaron tu lugar en ${application.opportunityTitle}.` : `La solicitud para ${application.opportunityTitle} no fue aceptada esta vez.`,

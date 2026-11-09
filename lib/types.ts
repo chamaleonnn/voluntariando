@@ -123,6 +123,7 @@ export type AppNotification = {
   actorId: string;
   applicationId?: string;
   invitationId?: string;
+  opportunityId?: string;
   feedbackId?: string;
   absenceReportId?: string;
   moderationTargetId?: string;
