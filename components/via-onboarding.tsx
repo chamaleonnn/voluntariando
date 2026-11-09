@@ -280,7 +280,7 @@ export function ViaMilestoneCelebration({ role, open, onClose }: { role: Tutoria
         <ViaAvatar state={leaving ? "farewell" : "celebration"} size={380} />
         <div className="via-milestone-dialogue">
           <span><Sparkles /> Un momento para celebrar</span>
-          <h2 id="via-milestone-title">{role === "volunteer" ? "¡Tu primera experiencia!" : "¡La primera experiencia que hicieron posible!"}</h2>
+          <h2 id="via-milestone-title">{role === "volunteer" ? "¡Tu primera vinculación!" : "¡La primera vinculación que hicieron posible!"}</h2>
           <p aria-live="polite">{typewriter.visibleText}<span className="typewriter-cursor" aria-hidden="true" /></p>
           <Button size="lg" onClick={finish}>{typewriter.complete ? "Seguir construyendo comunidad" : "Escuchar a Vía"} <ArrowRight /></Button>
         </div>

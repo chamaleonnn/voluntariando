@@ -462,7 +462,10 @@ export default function Home() {
   }, [user, profile, profileLoadedFor, organizationProfile, organizationLoadedFor]);
 
   useEffect(() => {
-    if (!user || user.isDemo || user.role !== "volunteer" || profileLoadedFor !== user.uid || profile.completedExperiences < 1) return;
+    if (!user || user.isDemo || user.role !== "volunteer" || profileLoadedFor !== user.uid) return;
+    const hasConfirmedLink = applications.some((item) => item.userId === user.uid && item.status === "accepted")
+      || invitations.some((item) => item.userId === user.uid && item.status === "accepted");
+    if (!hasConfirmedLink) return;
     if (viaWelcomeOpen || tutorialOpen || authOpen || viaMilestoneRole) return;
     const key = viaMilestoneStorageKey(user.uid, "volunteer");
     if (window.localStorage.getItem(key)) return;
@@ -470,9 +473,20 @@ export default function Home() {
       setViaMilestoneRole("volunteer");
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [authOpen, profile.completedExperiences, profileLoadedFor, tutorialOpen, user, viaMilestoneRole, viaWelcomeOpen]);
+  }, [applications, authOpen, invitations, profileLoadedFor, tutorialOpen, user, viaMilestoneRole, viaWelcomeOpen]);
 
-  function celebrateOrganizationMilestone() {
+  useEffect(() => {
+    if (!user || user.isDemo || user.role !== "organization" || organizationLoadedFor !== user.uid) return;
+    const hasConfirmedLink = applications.some((item) => item.organizationId === user.uid && item.status === "accepted")
+      || invitations.some((item) => item.organizationId === user.uid && item.status === "accepted");
+    if (!hasConfirmedLink || viaWelcomeOpen || tutorialOpen || authOpen || viaMilestoneRole) return;
+    const key = viaMilestoneStorageKey(user.uid, "organization");
+    if (window.localStorage.getItem(key)) return;
+    const timer = window.setTimeout(() => setViaMilestoneRole("organization"), 0);
+    return () => window.clearTimeout(timer);
+  }, [applications, authOpen, invitations, organizationLoadedFor, tutorialOpen, user, viaMilestoneRole, viaWelcomeOpen]);
+
+  function celebrateOrganizationLink() {
     if (!user || user.isDemo || user.role !== "organization") return;
     const key = viaMilestoneStorageKey(user.uid, "organization");
     if (window.localStorage.getItem(key)) return;
@@ -542,14 +556,14 @@ export default function Home() {
         )}
         {screen === "organization" && user?.role === "organization" && !user.isDemo && organizationLoadedFor !== user.uid && <ProfileLoading />}
         {screen === "organization" && user?.role === "admin" && tutorialPreviewRole === "organization" && (
-          <OrganizationPanel user={DEMO_USERS.organization} organization={DEMO_ORGANIZATION} opportunities={DEMO_OPPORTUNITIES} applications={DEMO_APPLICATIONS} invitations={[]} volunteers={DEMO_VOLUNTEERS} onOrganization={() => undefined} onOpportunities={() => undefined} onApplications={() => undefined} onInvitations={() => undefined} onProfile={() => undefined} onFirstExperience={() => undefined} />
+          <OrganizationPanel user={DEMO_USERS.organization} organization={DEMO_ORGANIZATION} opportunities={DEMO_OPPORTUNITIES} applications={DEMO_APPLICATIONS} invitations={[]} volunteers={DEMO_VOLUNTEERS} onOrganization={() => undefined} onOpportunities={() => undefined} onApplications={() => undefined} onInvitations={() => undefined} onProfile={() => undefined} onFirstLink={() => undefined} />
         )}
         {screen === "organization" && user?.role === "organization" && (user.isDemo || organizationLoadedFor === user.uid) && (
           <OrganizationPanel
             user={user} organization={organization} opportunities={opportunities} applications={applications} invitations={invitations} volunteers={volunteers}
             onOrganization={(next) => setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next])}
             onOpportunities={setOpportunities} onApplications={setApplications} onInvitations={setInvitations} onProfile={setProfile}
-            onFirstExperience={celebrateOrganizationMilestone} onSwitchRole={() => void changeAccountRole("volunteer")}
+            onFirstLink={celebrateOrganizationLink} onSwitchRole={() => void changeAccountRole("volunteer")}
           />
         )}
         {screen === "admin" && user?.role === "admin" && <AdminPanel user={user} opportunities={opportunities} reviews={reviews} />}
@@ -673,7 +687,7 @@ function VolunteerPanel({ user, profile, applications, invitations, absenceRepor
   </Dashboard>;
 }
 
-function OrganizationPanel({ user, organization, opportunities, applications, invitations, volunteers, onOrganization, onOpportunities, onApplications, onInvitations, onProfile, onFirstExperience, onSwitchRole }: { user: SessionUser; organization: Organization; opportunities: Opportunity[]; applications: Application[]; invitations: Invitation[]; volunteers: VolunteerProfile[]; onOrganization: (organization: Organization) => void; onOpportunities: (items: Opportunity[]) => void; onApplications: (items: Application[]) => void; onInvitations: (items: Invitation[]) => void; onProfile: (profile: VolunteerProfile) => void; onFirstExperience: () => void; onSwitchRole?: () => void }) {
+function OrganizationPanel({ user, organization, opportunities, applications, invitations, volunteers, onOrganization, onOpportunities, onApplications, onInvitations, onProfile, onFirstLink, onSwitchRole }: { user: SessionUser; organization: Organization; opportunities: Opportunity[]; applications: Application[]; invitations: Invitation[]; volunteers: VolunteerProfile[]; onOrganization: (organization: Organization) => void; onOpportunities: (items: Opportunity[]) => void; onApplications: (items: Application[]) => void; onInvitations: (items: Invitation[]) => void; onProfile: (profile: VolunteerProfile) => void; onFirstLink: () => void; onSwitchRole?: () => void }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [opportunityOpen, setOpportunityOpen] = useState(false);
   const [editing, setEditing] = useState<Opportunity | null>(null);
@@ -705,11 +719,11 @@ function OrganizationPanel({ user, organization, opportunities, applications, in
       return { invitation, compatibility };
     })
     .sort((left, right) => right.compatibility - left.compatibility);
-  const hasCompletedExperience = requests.some((item) => Boolean(item.completedAt)) || invitations.some((item) => Boolean(item.completedAt));
   async function decide(item: Application, status: "accepted" | "rejected") {
     try {
       if (!user.isDemo) await updateApplicationStatus(item, status);
       onApplications(applications.map((current) => current.id === item.id ? { ...current, status } : current));
+      if (status === "accepted") onFirstLink();
       toast.success(status === "accepted" ? "Participación confirmada" : "Solicitud rechazada");
     } catch (error) { toast.error("No pudimos actualizar la solicitud", { description: error instanceof Error ? error.message : "Intentá nuevamente." }); }
   }
@@ -733,7 +747,7 @@ function OrganizationPanel({ user, organization, opportunities, applications, in
     <OrganizationProfileDialog user={user} organization={organization} open={profileOpen} onOpenChange={setProfileOpen} onSaved={onOrganization} />
     <OpportunityEditor key={`${editing?.id ?? "new"}-${opportunityOpen ? "open" : "closed"}`} user={user} organization={organization} opportunity={editing} open={opportunityOpen} onOpenChange={setOpportunityOpen} onSaved={(next) => onOpportunities(editing ? opportunities.map((item) => item.id === next.id ? next : item) : [next, ...opportunities])} />
     <InvitationDialog key={invitedVolunteer?.id ?? "closed"} user={user} organization={organization} volunteer={invitedVolunteer} opportunities={own} open={Boolean(invitedVolunteer)} onOpenChange={(open) => !open && setInvitedVolunteer(null)} onSaved={(next) => onInvitations([next, ...invitations.filter((item) => item.id !== next.id)])} />
-    <ExperienceDialog user={user} organization={organization} application={experience} open={Boolean(experience)} onOpenChange={(open) => !open && setExperience(null)} onCompleted={(next, skills, tasks) => { if (next.source === "invitation") onInvitations(invitations.map((item) => item.id === next.id ? { ...item, completedAt: next.completedAt } : item)); else onApplications(applications.map((item) => item.id === next.id ? next : item)); onProfile({ ...DEMO_VOLUNTEERS[0], completedExperiences: DEMO_VOLUNTEERS[0].completedExperiences + 1, verifiedSkills: registerVerifiedSkills(DEMO_VOLUNTEERS[0].verifiedSkills ?? {}, skills), experiences: [...(DEMO_VOLUNTEERS[0].experiences ?? []), { opportunityId: next.opportunityId, opportunityTitle: next.opportunityTitle, organization: organization.name, tasks, skills, completedAt: new Date().toISOString() }] }); if (!hasCompletedExperience) onFirstExperience(); }} />
+    <ExperienceDialog user={user} organization={organization} application={experience} open={Boolean(experience)} onOpenChange={(open) => !open && setExperience(null)} onCompleted={(next, skills, tasks) => { if (next.source === "invitation") onInvitations(invitations.map((item) => item.id === next.id ? { ...item, completedAt: next.completedAt } : item)); else onApplications(applications.map((item) => item.id === next.id ? next : item)); onProfile({ ...DEMO_VOLUNTEERS[0], completedExperiences: DEMO_VOLUNTEERS[0].completedExperiences + 1, verifiedSkills: registerVerifiedSkills(DEMO_VOLUNTEERS[0].verifiedSkills ?? {}, skills), experiences: [...(DEMO_VOLUNTEERS[0].experiences ?? []), { opportunityId: next.opportunityId, opportunityTitle: next.opportunityTitle, organization: organization.name, tasks, skills, completedAt: new Date().toISOString() }] }); }} />
     <AbsenceDialog user={user} organization={organization} application={absence} open={Boolean(absence)} onOpenChange={(open) => !open && setAbsence(null)} onSaved={(next) => { if (next.source === "invitation") onInvitations(invitations.map((item) => item.id === next.id ? { ...item, absentAt: next.absentAt } : item)); else onApplications(applications.map((item) => item.id === next.id ? next : item)); }} />
   </Dashboard>;
 }
