@@ -25,6 +25,14 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/organizations/$(organizationId)).data.status == "verified";
     }
     function publicOpportunity(data) { return data.status == "published" && data.visibility == "public"; }
+    function validOrganizationAreas(data) {
+      return data.areas is list
+        && data.areas.size() <= 8
+        && data.areas.hasOnly([
+          "Ambiente", "Educación", "Deporte y recreación", "Arte y cultura",
+          "Alimentación", "Asistencia comunitaria", "Salud y bienestar", "Tecnología y comunicación"
+        ]);
+    }
     function verifiedSkillsAdvance(previous, next, selected) {
       return selected.hasOnly([
           "Arte y creatividad", "Educación y acompañamiento", "Naturaleza y ambiente",
@@ -116,13 +124,14 @@ service cloud.firestore {
       allow create: if owns(organizationId)
         && getAfter(/databases/$(database)/documents/users/$(organizationId)).data.role == "organization"
         && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.status == "pending";
+        && request.resource.data.status == "pending"
+        && validOrganizationAreas(request.resource.data);
       allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-        "name", "province", "location", "contact", "description", "status", "moderationReason",
+        "name", "province", "location", "contact", "description", "areas", "status", "moderationReason",
         "moderatedBy", "moderatedAt", "updatedAt"
       ])) || (activeUser() && owns(resource.data.ownerId) && request.resource.data.ownerId == resource.data.ownerId && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-        "name", "province", "location", "contact", "description", "updatedAt"
-      ]));
+        "name", "province", "location", "contact", "description", "areas", "updatedAt"
+      ]) && validOrganizationAreas(request.resource.data));
     }
 
     match /organizationMembers/{membershipId} {

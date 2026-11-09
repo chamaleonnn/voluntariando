@@ -534,7 +534,7 @@ test("el alta inicial de organización crea únicamente su propia membresía", a
   batch.set(doc(database, "organizations/new-org"), {
     ownerId: "new-org", name: "Organización nueva", email: "nueva-organizacion@example.com",
     province: "Córdoba", location: "Córdoba", contact: "nueva-organizacion@example.com",
-    description: "", status: "pending", createdAt: serverTimestamp(),
+    description: "", areas: [], status: "pending", createdAt: serverTimestamp(),
   });
   batch.set(doc(database, "organizationMembers/new-org_new-org"), {
     organizationId: "new-org", userId: "new-org", role: "owner", createdAt: serverTimestamp(),
@@ -567,7 +567,7 @@ test("los formularios legítimos conservan campos protegidos al editar perfiles"
     await setDoc(doc(database, "organizations/edit-org"), {
       ownerId: "edit-org", name: "Organización inicial", email: "editar-org@example.com",
       province: "Córdoba", location: "Córdoba", contact: "editar-org@example.com",
-      description: "Descripción inicial", status: "pending",
+      description: "Descripción inicial", areas: [], status: "pending",
     });
     await setDoc(doc(database, "organizationMembers/edit-org_edit-org"), {
       organizationId: "edit-org", userId: "edit-org", role: "owner",
@@ -587,8 +587,11 @@ test("los formularios legítimos conservan campos protegidos al editar perfiles"
   await assertSucceeds(setDoc(doc(organization.firestore(), "organizations/edit-org"), {
     ownerId: "edit-org", name: "Organización actualizada", email: "editar-org@example.com",
     province: "Córdoba", location: "Córdoba capital", contact: "contacto@example.com",
-    description: "Descripción actualizada", status: "pending", updatedAt: serverTimestamp(),
+    description: "Descripción actualizada", areas: ["Ambiente", "Educación"], status: "pending", updatedAt: serverTimestamp(),
   }, { merge: true }));
+  await assertFails(updateDoc(doc(organization.firestore(), "organizations/edit-org"), {
+    areas: ["Área inexistente"], updatedAt: serverTimestamp(),
+  }));
 });
 
 test("solo un voluntario activo puede postularse", async () => {

@@ -109,6 +109,7 @@ async function toSessionUser(user: User, requestedRole: SessionUser["role"] = "v
         location: "Córdoba",
         contact: email,
         description: "",
+        areas: [],
         // Administración debe validar la organización antes de que publique oportunidades.
         status: "pending",
         createdAt: serverTimestamp(),

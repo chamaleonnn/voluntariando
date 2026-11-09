@@ -193,6 +193,7 @@ export type Organization = {
   email: string;
   province: string;
   description: string;
+  areas?: string[];
   location?: string;
   contact?: string;
   status: "pending" | "verified" | "suspended";
