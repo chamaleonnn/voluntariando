@@ -433,21 +433,27 @@ export default function Home() {
 
   useEffect(() => {
     if (!user || user.isDemo || user.role !== "volunteer" || profileLoadedFor !== user.uid || profile.completedExperiences < 1) return;
+    if (viaWelcomeOpen || tutorialOpen || authOpen || viaMilestoneRole) return;
     const key = viaMilestoneStorageKey(user.uid, "volunteer");
     if (window.localStorage.getItem(key)) return;
     const timer = window.setTimeout(() => {
-      window.localStorage.setItem(key, "shown");
       setViaMilestoneRole("volunteer");
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [profile.completedExperiences, profileLoadedFor, user]);
+  }, [authOpen, profile.completedExperiences, profileLoadedFor, tutorialOpen, user, viaMilestoneRole, viaWelcomeOpen]);
 
   function celebrateOrganizationMilestone() {
     if (!user || user.isDemo || user.role !== "organization") return;
     const key = viaMilestoneStorageKey(user.uid, "organization");
     if (window.localStorage.getItem(key)) return;
-    window.localStorage.setItem(key, "shown");
     setViaMilestoneRole("organization");
+  }
+
+  function closeViaMilestone() {
+    if (user && !user.isDemo && user.role !== "admin" && viaMilestoneRole) {
+      window.localStorage.setItem(viaMilestoneStorageKey(user.uid, viaMilestoneRole), "shown");
+    }
+    setViaMilestoneRole(null);
   }
 
   function finishTutorial(showVia: boolean) {
@@ -526,7 +532,7 @@ export default function Home() {
       {user?.role === "organization" && !user.isDemo && <OrganizationProfileDialog user={user} organization={organization} open={organizationOnboarding} onOpenChange={() => undefined} onSaved={(next) => { setOrganizationProfile(next); setOrganizations((current) => [...current.filter((item) => item.id !== next.id), next]); }} mandatory />}
       {user && (user.role !== "admin" || tutorialPreviewRole) && <ViaVideoWelcome role={tutorialPreviewRole ?? user.role as TutorialRole} open={viaWelcomeOpen} onOmit={() => finishViaWelcome(false)} onStartTour={() => finishViaWelcome(true)} />}
       {user && (user.role !== "admin" || tutorialPreviewRole) && <WelcomeTutorial role={tutorialPreviewRole ?? user.role as TutorialRole} open={tutorialOpen} screen={screen} onNavigate={navigate} onOpenChange={setTutorialOpen} onFinish={finishTutorial} />}
-      <ViaMilestoneCelebration role={viaMilestoneRole ?? "volunteer"} open={Boolean(viaMilestoneRole)} onClose={() => setViaMilestoneRole(null)} />
+      <ViaMilestoneCelebration role={viaMilestoneRole ?? "volunteer"} open={Boolean(viaMilestoneRole)} onClose={closeViaMilestone} />
       <Dialog open={tutorialPreviewChoiceOpen} onOpenChange={setTutorialPreviewChoiceOpen}><DialogContent><DialogHeader><DialogTitle>Vista previa de Vía</DialogTitle><DialogDescription>Probá sus recorridos y celebraciones con datos simulados. No se modifica tu rol ni información real.</DialogDescription></DialogHeader><div className="tutorial-role-options"><Button onClick={() => startAdminTutorialPreview("volunteer")}><UserRound /> Tutorial de voluntario</Button><Button variant="outline" onClick={() => startAdminTutorialPreview("organization")}><Building2 /> Tutorial de organización</Button><Button variant="outline" onClick={() => startAdminMilestonePreview("volunteer")}><Sparkles /> Celebración del voluntario</Button><Button variant="outline" onClick={() => startAdminMilestonePreview("organization")}><Sparkles /> Celebración de la organización</Button></div></DialogContent></Dialog>
     </main>
   );

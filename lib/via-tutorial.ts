@@ -68,5 +68,5 @@ export function viaTutorialStorageKey(userId: string, role: TutorialRole) {
 }
 
 export function viaMilestoneStorageKey(userId: string, role: TutorialRole) {
-  return `voluntariando-via-first-experience-${userId}-${role}-v1`;
+  return `voluntariando-via-first-experience-${userId}-${role}-v2`;
 }
